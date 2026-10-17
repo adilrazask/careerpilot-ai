@@ -51,7 +51,7 @@ yarn-error.log*
 !.env.example
 
 # Local SQLite databases & runtime data
-backend/data/*.db
+backend/data/*.db*
 backend/data/resumes/*
 backend/data/uploads/*
 !backend/data/resumes/.gitkeep
