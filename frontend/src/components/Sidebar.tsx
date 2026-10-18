@@ -1,11 +1,12 @@
 import React from 'react';
 import {
   LayoutDashboard, Bot, Compass, UserCircle, FileText,
-  Users, Send, Sliders, Puzzle, ClipboardList
+  Users, Send, Sliders, Puzzle, ClipboardList, Mic
 } from 'lucide-react';
 
 export type PageId =
   | 'dashboard'
+  | 'voice'
   | 'agent'
   | 'jobs'
   | 'profile'
@@ -25,6 +26,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onSelectPage, unresolvedCount = 0 }) => {
   const navItems: { id: PageId; label: string; icon: React.ElementType; badge?: string | number }[] = [
     { id: 'dashboard', label: 'Command Centre', icon: LayoutDashboard },
+    { id: 'voice', label: 'Voice Control', icon: Mic },
     { id: 'agent', label: 'AI Agent Workspace', icon: Bot },
     { id: 'jobs', label: 'Job Discovery', icon: Compass },
     { id: 'profile', label: 'Career Profile', icon: UserCircle },

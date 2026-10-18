@@ -2,7 +2,8 @@ import axios from 'axios';
 import {
   DashboardMetrics, JobListing, CareerProfile, ResumeVersion,
   RecruiterContact, ApplicationRecord, AutomationPolicy,
-  AgentInstruction, IntegrationMetadata, AuditLog, SystemHealthItem
+  AgentInstruction, IntegrationMetadata, AuditLog, SystemHealthItem,
+  VoiceSettings, VoiceCommandResponse, VoiceLogItem
 } from '../types';
 
 const API_BASE = '/api';
@@ -171,6 +172,64 @@ export const api = {
   // Worker manual cycle
   runWorkerCycle: async () => {
     const res = await axios.post(`${API_BASE}/worker/run-cycle`);
+    return res.data;
+  },
+
+  // Voice Command System
+  getVoiceSettings: async (): Promise<VoiceSettings> => {
+    const res = await axios.get(`${API_BASE}/voice/settings`);
+    return res.data;
+  },
+  updateVoiceSettings: async (settings: Partial<VoiceSettings>): Promise<VoiceSettings> => {
+    const res = await axios.put(`${API_BASE}/voice/settings`, settings);
+    return res.data;
+  },
+  verifyVoicePassphrase: async (passphrase: string) => {
+    const res = await axios.post(`${API_BASE}/voice/verify-passphrase`, { passphrase });
+    return res.data;
+  },
+  changeVoicePassphrase: async (currentPassphrase: string, newPassphrase: string) => {
+    const res = await axios.post(`${API_BASE}/voice/change-passphrase`, {
+      current_passphrase: currentPassphrase,
+      new_passphrase: newPassphrase
+    });
+    return res.data;
+  },
+  processVoiceCommand: async (transcript: string, sessionId?: string, passphrase?: string): Promise<VoiceCommandResponse> => {
+    const res = await axios.post(`${API_BASE}/voice/process-command`, {
+      transcript,
+      session_id: sessionId,
+      passphrase
+    });
+    return res.data;
+  },
+  confirmVoiceAction: async (sessionId: string, confirmationToken: string, authorized: boolean, passphrase?: string) => {
+    const res = await axios.post(`${API_BASE}/voice/confirm-action`, {
+      session_id: sessionId,
+      confirmation_token: confirmationToken,
+      authorized,
+      passphrase
+    });
+    return res.data;
+  },
+  resetVoiceSession: async (sessionId?: string) => {
+    const res = await axios.post(`${API_BASE}/voice/session/reset`, null, {
+      params: { session_id: sessionId }
+    });
+    return res.data;
+  },
+  getVoiceHistory: async (limit: number = 20): Promise<VoiceLogItem[]> => {
+    const res = await axios.get(`${API_BASE}/voice/history`, { params: { limit } });
+    return res.data;
+  },
+  transcribeAudio: async (audioBlob: Blob, sessionId?: string, language?: string) => {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.wav');
+    if (sessionId) formData.append('session_id', sessionId);
+    if (language) formData.append('language', language);
+    const res = await axios.post(`${API_BASE}/voice/transcribe`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
     return res.data;
   }
 };

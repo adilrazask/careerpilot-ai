@@ -9,7 +9,7 @@ from app.config import settings
 from app.database_init import init_db
 from app.routers import (
     dashboard, agent, jobs, profile, resumes, contacts,
-    applications, integrations, policy, audit, worker
+    applications, integrations, policy, audit, worker, voice
 )
 
 @asynccontextmanager
@@ -48,6 +48,7 @@ app.include_router(integrations.router)
 app.include_router(policy.router)
 app.include_router(audit.router)
 app.include_router(worker.router)
+app.include_router(voice.router)
 
 @app.get("/")
 def root():

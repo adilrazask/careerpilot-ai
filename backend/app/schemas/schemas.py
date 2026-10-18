@@ -327,3 +327,58 @@ class DashboardMetricsResponse(BaseModel):
     next_scheduled_search: Optional[datetime]
     next_follow_up_due: Optional[datetime]
     integration_health_summary: Dict[str, str]
+
+# --- Voice Command System Schemas ---
+class VoiceSettingsResponse(BaseModel):
+    passphrase_enabled: bool
+    is_locked: bool
+    lock_time_remaining_seconds: int = 0
+    wake_word_enabled: bool
+    wake_word: str
+    speech_language: str
+    speech_rate: float
+    speech_pitch: float
+    voice_name: str
+    prefer_local_stt: bool
+
+class VoiceSettingsUpdateRequest(BaseModel):
+    wake_word_enabled: Optional[bool] = None
+    wake_word: Optional[str] = None
+    speech_language: Optional[str] = None
+    speech_rate: Optional[float] = None
+    speech_pitch: Optional[float] = None
+    voice_name: Optional[str] = None
+    prefer_local_stt: Optional[bool] = None
+
+class VoicePassphraseVerifyRequest(BaseModel):
+    passphrase: str
+
+class VoicePassphraseChangeRequest(BaseModel):
+    current_passphrase: str
+    new_passphrase: str
+
+class VoiceCommandProcessRequest(BaseModel):
+    transcript: str
+    session_id: Optional[str] = None
+    passphrase: Optional[str] = None
+
+class VoiceCommandProcessResponse(BaseModel):
+    session_id: str
+    raw_transcript: str
+    interpreted_intent: str
+    extracted_parameters: Dict[str, Any]
+    risk_level: str # LEVEL_1_LOW, LEVEL_2_CONTROLLED, LEVEL_3_PROTECTED
+    requires_confirmation: bool
+    confirmation_token: Optional[str] = None
+    confirmation_prompt: Optional[str] = None
+    spoken_response: str
+    display_text: str
+    data_payload: Dict[str, Any] = Field(default_factory=dict)
+    conversation_turns: int = 1
+
+class VoiceActionConfirmationRequest(BaseModel):
+    session_id: str
+    confirmation_token: str
+    authorized: bool
+    passphrase: Optional[str] = None
+

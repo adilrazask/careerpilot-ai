@@ -5,7 +5,8 @@ from app.models.all_models import (
     ContactVerificationRecord, ApplicationRecord, ApplicationAttempt,
     ApplicationDocument, EmailMessage, EmailEvent, FollowUpTask, RecruiterResponse,
     Interview, AutomationPolicy, ScheduledTask, WorkerRun, TaskEvent, Notification,
-    AuditLog, IntegrationCredentialsMetadata, SystemHealth, AgentInstruction
+    AuditLog, IntegrationCredentialsMetadata, SystemHealth, AgentInstruction,
+    VoiceSecuritySettings, VoiceCommandLog, VoiceSessionContext
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ContactVerificationRecord", "ApplicationRecord", "ApplicationAttempt",
     "ApplicationDocument", "EmailMessage", "EmailEvent", "FollowUpTask", "RecruiterResponse",
     "Interview", "AutomationPolicy", "ScheduledTask", "WorkerRun", "TaskEvent", "Notification",
-    "AuditLog", "IntegrationCredentialsMetadata", "SystemHealth", "AgentInstruction"
+    "AuditLog", "IntegrationCredentialsMetadata", "SystemHealth", "AgentInstruction",
+    "VoiceSecuritySettings", "VoiceCommandLog", "VoiceSessionContext"
 ]

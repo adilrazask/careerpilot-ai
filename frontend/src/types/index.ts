@@ -267,3 +267,41 @@ export interface SystemHealthItem {
   latency_ms: number;
   checked_at: string;
 }
+
+export interface VoiceSettings {
+  passphrase_enabled: boolean;
+  is_locked: boolean;
+  lock_time_remaining_seconds: number;
+  wake_word_enabled: boolean;
+  wake_word: string;
+  speech_language: string;
+  speech_rate: number;
+  speech_pitch: number;
+  voice_name: string;
+  prefer_local_stt: boolean;
+}
+
+export interface VoiceCommandResponse {
+  session_id: string;
+  raw_transcript: string;
+  interpreted_intent: string;
+  extracted_parameters: Record<string, any>;
+  risk_level: 'LEVEL_1_LOW' | 'LEVEL_2_CONTROLLED' | 'LEVEL_3_PROTECTED' | string;
+  requires_confirmation: boolean;
+  confirmation_token?: string | null;
+  confirmation_prompt?: string | null;
+  spoken_response: string;
+  display_text: string;
+  data_payload: Record<string, any>;
+  conversation_turns: number;
+}
+
+export interface VoiceLogItem {
+  id: number;
+  session_id: string;
+  raw_transcript: string;
+  detected_intent: string;
+  risk_level: string;
+  spoken_response: string;
+  created_at: string | null;
+}

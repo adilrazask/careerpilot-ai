@@ -315,16 +315,41 @@ def init_db(db: Session = None):
         db.commit()
 
         # 6. Default System Health entries
-        components = ["database", "scheduler", "worker", "email_outbound", "email_inbound", "ai_engine", "job_discovery"]
+        components = ["database", "scheduler", "worker", "email_outbound", "email_inbound", "ai_engine", "job_discovery", "voice_engine"]
         for c in components:
             sh = db.query(SystemHealth).filter_by(component=c).first()
             if not sh:
                 db.add(SystemHealth(
                     component=c,
-                    status="HEALTHY" if c in ["database", "scheduler"] else "UNCONFIGURED",
+                    status="HEALTHY" if c in ["database", "scheduler", "voice_engine"] else "UNCONFIGURED",
                     message="Initialized"
                 ))
         db.commit()
+
+        # 7. Default Voice Security Settings
+        from app.models import VoiceSecuritySettings
+        import hashlib, os
+        voice_settings = db.query(VoiceSecuritySettings).filter_by(id=1).first()
+        if not voice_settings:
+            default_phrase = "careerpilot secure command"
+            salt = os.urandom(16).hex()
+            pw_hash = hashlib.pbkdf2_hmac("sha256", default_phrase.encode("utf-8"), bytes.fromhex(salt), 100000).hex()
+            db.add(VoiceSecuritySettings(
+                id=1,
+                user_id=1,
+                passphrase_hash=pw_hash,
+                passphrase_salt=salt,
+                passphrase_enabled=True,
+                failed_attempts=0,
+                wake_word_enabled=False,
+                wake_word="Hey CareerPilot",
+                speech_language="en-US",
+                speech_rate=1.0,
+                speech_pitch=1.0,
+                voice_name="default",
+                prefer_local_stt=True
+            ))
+            db.commit()
 
     finally:
         if close_db:

@@ -11,6 +11,7 @@ import { ApplicationPipeline } from './pages/ApplicationPipeline';
 import { Integrations } from './pages/Integrations';
 import { AutopilotPolicyPage } from './pages/AutopilotPolicy';
 import { AuditLogsPage } from './pages/AuditLogs';
+import { VoiceControlPanel } from './pages/VoiceControlPanel';
 import { api } from './services/api';
 import { DashboardMetrics } from './types';
 
@@ -48,6 +49,7 @@ export const App: React.FC = () => {
           {currentPage === 'dashboard' && (
             <Dashboard metrics={metrics} onRefresh={fetchMetrics} onNavigate={setCurrentPage} />
           )}
+          {currentPage === 'voice' && <VoiceControlPanel onNavigate={setCurrentPage} />}
           {currentPage === 'agent' && <AgentWorkspace />}
           {currentPage === 'jobs' && <JobDiscovery onNavigate={setCurrentPage} />}
           {currentPage === 'profile' && <CareerProfilePage />}

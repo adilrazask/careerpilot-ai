@@ -604,3 +604,56 @@ class AgentInstruction(Base):
     applications_created = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+# 35. VoiceSecuritySettings
+class VoiceSecuritySettings(Base):
+    __tablename__ = "voice_security_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), default=1)
+    passphrase_hash = Column(String(255), nullable=False)
+    passphrase_salt = Column(String(64), nullable=False)
+    passphrase_enabled = Column(Boolean, default=True)
+    failed_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    wake_word_enabled = Column(Boolean, default=False)
+    wake_word = Column(String(100), default="Hey CareerPilot")
+    speech_language = Column(String(20), default="en-US")
+    speech_rate = Column(Float, default=1.0)
+    speech_pitch = Column(Float, default=1.0)
+    voice_name = Column(String(100), default="default")
+    prefer_local_stt = Column(Boolean, default=True)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+# 36. VoiceCommandLog
+class VoiceCommandLog(Base):
+    __tablename__ = "voice_command_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(100), index=True, default="")
+    raw_transcript = Column(Text, nullable=False)
+    edited_transcript = Column(Text, default="")
+    detected_intent = Column(String(100), index=True, nullable=False)
+    extracted_parameters = Column(JSON, default=dict)
+    risk_level = Column(String(50), default="LEVEL_1_LOW") # LEVEL_1_LOW, LEVEL_2_CONTROLLED, LEVEL_3_PROTECTED
+    requires_confirmation = Column(Boolean, default=False)
+    is_confirmed = Column(Boolean, default=False)
+    execution_status = Column(String(50), default="EXECUTED") # PENDING, CONFIRMED, EXECUTED, REJECTED, FAILED
+    spoken_response = Column(Text, default="")
+    execution_details = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+# 37. VoiceSessionContext
+class VoiceSessionContext(Base):
+    __tablename__ = "voice_session_contexts"
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(100), unique=True, index=True, nullable=False)
+    active_query = Column(String(500), default="")
+    active_filters = Column(JSON, default=dict)
+    active_job_ids = Column(JSON, default=list) # Ordered list of job IDs from current voice context
+    pending_clarification = Column(String(100), default="")
+    pending_action_type = Column(String(100), default="")
+    pending_action_payload = Column(JSON, default=dict)
+    conversation_history = Column(JSON, default=list) # List of {"role": "user"|"agent", "text": "..."}
+    conversation_turns = Column(Integer, default=0)
+    last_active_at = Column(DateTime(timezone=True), default=utcnow)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+

@@ -7,7 +7,16 @@ from app.models import ApplicationRecord, ApplicationAttempt, JobListing, Career
 from app.services.audit import record_audit_log
 
 class EmployerPortalService:
-    """Method B: Compliant employer career portal integration interface with anti-bot/CAPTCHA pause safeguards."""
+    @staticmethod
+    def detect_anti_bot_challenge(content_or_url: str) -> bool:
+        """Detects presence of interactive CAPTCHA, Cloudflare challenge, or bot detection signals in URL or HTML content."""
+        lower = content_or_url.lower()
+        signals = [
+            "captcha", "hcaptcha", "recaptcha", "cloudflare", "cf-turnstile",
+            "challenge-platform", "verify you are human", "human verification",
+            "bot detection", "access denied", "please verify"
+        ]
+        return any(s in lower for s in signals)
 
     @classmethod
     def attempt_portal_submission(
@@ -22,7 +31,7 @@ class EmployerPortalService:
 
         # Step 1: Detect if portal requires interactive human verification (CAPTCHA / Cloudflare / MFA)
         # We inspect portal URL domain and supported integration types
-        is_protected_portal = any(d in url.lower() for d in ["myworkdayjobs.com", "taleo.net", "greenhouse.io", "lever.co", "brassring.com"])
+        is_protected_portal = any(d in url.lower() for d in ["myworkdayjobs.com", "taleo.net", "greenhouse.io", "lever.co", "brassring.com"]) or cls.detect_anti_bot_challenge(url)
 
         # Reserve attempt state
         attempt_key = f"portal-{application.id}-{job.id}"
