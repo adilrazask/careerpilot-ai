@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { DashboardMetrics } from '../types';
 import {
-  Sun, Moon, ShieldAlert, Play, Pause, RefreshCw, Cpu, Activity
+  Sun, Moon, ShieldAlert, Play, Pause, RefreshCw, Cpu, Activity, LogOut, Zap
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -13,7 +14,31 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ metrics, onRefresh }) => {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout } = useAuth();
   const [loadingAction, setLoadingAction] = useState(false);
+
+  const handleOneClickDispatch = async () => {
+    setLoadingAction(true);
+    try {
+      const res = await api.dispatchBatch(10, false);
+      if (res.status === 'PAUSED_HOURS') {
+        const force = window.confirm(`${res.message}\n\nWould you like to Force Dispatch now regardless of hours?`);
+        if (force) {
+          const forceRes = await api.dispatchBatch(10, true);
+          alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!`);
+        }
+      } else if (res.status === 'DAILY_LIMIT_REACHED') {
+        alert(res.message);
+      } else {
+        alert(`Successfully dispatched ${res.dispatched_count} application(s) using your exact resume PDF!\nRemaining daily allowance: ${res.remaining_daily_allowance}`);
+      }
+      onRefresh();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Dispatch failed.');
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
   const handlePauseToggle = async () => {
     if (!metrics) return;
@@ -91,6 +116,17 @@ export const Navbar: React.FC<NavbarProps> = ({ metrics, onRefresh }) => {
 
         {/* Right: Quick Controls */}
         <div className="flex items-center space-x-2.5">
+          {/* One-Click Apply Master Button */}
+          <button
+            onClick={handleOneClickDispatch}
+            disabled={loadingAction}
+            title="One-click apply to prepared batch (max 10/day, strictly 10:00 AM - 6:00 PM IST)"
+            className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-500/25 transition-colors disabled:opacity-50"
+          >
+            <Zap className={`h-3.5 w-3.5 ${loadingAction ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">One-Click Apply (10 Cap)</span>
+          </button>
+
           {/* Manual Run Cycle */}
           <button
             onClick={handleRunCycle}
@@ -127,15 +163,32 @@ export const Navbar: React.FC<NavbarProps> = ({ metrics, onRefresh }) => {
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
 
-          {/* Profile Badge */}
+          {/* Profile Badge & Signout */}
           <div className="flex items-center space-x-2 pl-1">
-            <div className="h-7 w-7 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 flex items-center justify-center font-bold text-xs border border-blue-300 dark:border-blue-800">
-              AR
-            </div>
+            <img
+              src={user?.avatar_url || '/profile_photo.jpg'}
+              alt={user?.full_name || 'SK Adil Raja'}
+              className="h-8 w-8 rounded-full object-cover border-2 border-blue-500 shadow-sm"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
             <div className="hidden xl:block text-left">
-              <p className="text-xs font-semibold leading-tight text-slate-800 dark:text-slate-200">Adil Raja</p>
-              <p className="text-[10px] text-slate-500 leading-tight">Operations Specialist</p>
+              <p className="text-xs font-semibold leading-tight text-slate-800 dark:text-slate-200">
+                {user?.full_name || 'SK Adil Raja'}
+              </p>
+              <p className="text-[10px] text-slate-500 leading-tight uppercase font-semibold">
+                {user?.role || 'Super Admin'}
+              </p>
             </div>
+
+            <button
+              onClick={() => logout()}
+              title="Sign Out"
+              className="p-1.5 rounded-md text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>

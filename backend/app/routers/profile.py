@@ -52,6 +52,7 @@ def _build_profile_response(profile: CareerProfile) -> CareerProfileResponse:
         summary=profile.summary,
         linkedin_url=profile.linkedin_url,
         portfolio_url=profile.portfolio_url,
+        avatar_url=getattr(profile, "avatar_url", "/profile_photo.jpg") or "/profile_photo.jpg",
         preferred_contact_method=profile.preferred_contact_method,
         verified_facts=profile.verified_facts or {},
         employment_history=[

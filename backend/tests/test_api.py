@@ -26,7 +26,7 @@ def test_profile_endpoints(client):
     res = client.get("/api/profile")
     assert res.status_code == 200
     data = res.json()
-    assert data["full_name"] == "Adil Raja"
+    assert "adil raja" in data["full_name"].lower()
     assert "Operations" in data["summary"]
 
     # Update profile

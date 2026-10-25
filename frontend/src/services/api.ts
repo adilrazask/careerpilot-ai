@@ -3,10 +3,35 @@ import {
   DashboardMetrics, JobListing, CareerProfile, ResumeVersion,
   RecruiterContact, ApplicationRecord, AutomationPolicy,
   AgentInstruction, IntegrationMetadata, AuditLog, SystemHealthItem,
-  VoiceSettings, VoiceCommandResponse, VoiceLogItem
+  VoiceSettings, VoiceCommandResponse, VoiceLogItem,
+  User, UserSession, FeatureItem
 } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '') + '/api';
+
+// Attach token from localStorage to all outgoing requests
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('careerpilot_auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Intercept 401 Unauthorized responses (e.g. session terminated by admin)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('careerpilot_auth_token');
+      localStorage.removeItem('careerpilot_user');
+      window.dispatchEvent(new CustomEvent('session-terminated', {
+        detail: error.response.data?.detail || 'Session terminated by administrator.'
+      }));
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const api = {
   // Dashboard
@@ -101,6 +126,10 @@ export const api = {
     const res = await axios.post(`${API_BASE}/contacts/discover/${jobId}`);
     return res.data;
   },
+  discoverApolloContacts: async (jobId: number): Promise<RecruiterContact[]> => {
+    const res = await axios.post(`${API_BASE}/contacts/discover-apollo/${jobId}`);
+    return res.data;
+  },
   verifyContact: async (contactId: number): Promise<RecruiterContact> => {
     const res = await axios.post(`${API_BASE}/contacts/verify/${contactId}`);
     return res.data;
@@ -158,6 +187,10 @@ export const api = {
     const res = await axios.post(`${API_BASE}/integrations/toggle`, { provider_name: providerName, enable });
     return res.data;
   },
+  configureIntegration: async (providerName: string, apiKey: string, config?: any) => {
+    const res = await axios.post(`${API_BASE}/integrations/configure`, { provider_name: providerName, api_key: apiKey, config });
+    return res.data;
+  },
 
   // Audit Logs & System Health
   getAuditLogs: async (limit: number = 100): Promise<AuditLog[]> => {
@@ -172,6 +205,10 @@ export const api = {
   // Worker manual cycle
   runWorkerCycle: async () => {
     const res = await axios.post(`${API_BASE}/worker/run-cycle`);
+    return res.data;
+  },
+  dispatchBatch: async (maxCount: number = 10, force: boolean = false) => {
+    const res = await axios.post(`${API_BASE}/worker/dispatch-batch?max_count=${maxCount}&force=${force}`);
     return res.data;
   },
 
@@ -230,6 +267,55 @@ export const api = {
     const res = await axios.post(`${API_BASE}/voice/transcribe`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
+    return res.data;
+  },
+
+  // Authentication
+  login: async (email: string, password?: string): Promise<{ token: string; user: User }> => {
+    const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
+    return res.data;
+  },
+  loginWithGoogle: async (payload: { credential?: string; email?: string; name?: string; avatar?: string; google_id?: string }): Promise<{ token: string; user: User }> => {
+    const res = await axios.post(`${API_BASE}/auth/google`, payload);
+    return res.data;
+  },
+  getMe: async (): Promise<{ user: User; session_id: number; auth_provider: string }> => {
+    const res = await axios.get(`${API_BASE}/auth/me`);
+    return res.data;
+  },
+  logout: async () => {
+    try {
+      const res = await axios.post(`${API_BASE}/auth/logout`);
+      return res.data;
+    } finally {
+      localStorage.removeItem('careerpilot_auth_token');
+      localStorage.removeItem('careerpilot_user');
+    }
+  },
+
+  // Admin Operations
+  getAdminFeatures: async (): Promise<FeatureItem[]> => {
+    const res = await axios.get(`${API_BASE}/admin/features`);
+    return res.data;
+  },
+  getAdminUsers: async (): Promise<User[]> => {
+    const res = await axios.get(`${API_BASE}/admin/users`);
+    return res.data;
+  },
+  updateUserPermissions: async (userId: number, permissions: { role?: string; allowed_features: string[] }): Promise<any> => {
+    const res = await axios.put(`${API_BASE}/admin/users/${userId}/permissions`, permissions);
+    return res.data;
+  },
+  getAdminSessions: async (): Promise<UserSession[]> => {
+    const res = await axios.get(`${API_BASE}/admin/sessions`);
+    return res.data;
+  },
+  terminateSession: async (sessionId: number) => {
+    const res = await axios.post(`${API_BASE}/admin/sessions/${sessionId}/terminate`);
+    return res.data;
+  },
+  terminateAllUserSessions: async (userId: number) => {
+    const res = await axios.post(`${API_BASE}/admin/users/${userId}/terminate-all`);
     return res.data;
   }
 };

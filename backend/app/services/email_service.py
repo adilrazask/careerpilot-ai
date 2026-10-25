@@ -15,7 +15,7 @@ from app.config import settings
 from app.models import (
     ApplicationRecord, ApplicationAttempt, EmailMessage as EmailModel, EmailEvent,
     JobListing, RecruiterContact, ResumeVersion, AutomationPolicy, RecruiterResponse,
-    Interview
+    Interview, FollowUpTask
 )
 from app.services.audit import record_audit_log
 
@@ -145,16 +145,55 @@ class EmailOutreachService:
         db.commit()
 
         # Prepare Email Content
-        subject = f"Application for {job.title} — {job.company_name}"
-        body_text = (
-            f"Dear Hiring Team at {job.company_name},\n\n"
-            f"I am writing to express my interest in the {job.title} opportunity. "
-            f"Please find my tailored resume and application details attached for your consideration.\n\n"
-            f"I look forward to discussing how my experience aligns with your operational goals.\n\n"
-            f"Sincerely,\n"
-            f"{settings.CAREER_FULL_NAME}\n"
-            f"{settings.CAREER_PHONE} | {settings.CAREER_EMAIL or settings.EMAIL_FROM}"
-        )
+        policy = db.query(AutomationPolicy).filter_by(id=1).first()
+        candidate_name = settings.CAREER_FULL_NAME or "SK Adil Raja"
+        candidate_phone = settings.CAREER_PHONE or "+91 9583029294"
+        candidate_email = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
+
+        if policy and policy.custom_application_subject:
+            try:
+                subject = policy.custom_application_subject.format(
+                    title=job.title,
+                    company=job.company_name,
+                    name=candidate_name
+                )
+            except Exception:
+                subject = f"Application: {job.title} — {candidate_name}"
+        else:
+            subject = f"Application: {job.title} — {candidate_name}"
+
+        if policy and policy.custom_application_body:
+            try:
+                body_text = policy.custom_application_body.format(
+                    title=job.title,
+                    company=job.company_name,
+                    name=candidate_name,
+                    phone=candidate_phone,
+                    email=candidate_email
+                )
+            except Exception:
+                body_text = policy.custom_application_body
+        else:
+            body_text = (
+                f"Dear Hiring Team at {job.company_name},\n\n"
+                f"I hope this email finds you well.\n\n"
+                f"I am writing to formally submit my application for the {job.title} position at {job.company_name}.\n\n"
+                f"With over 2.5 years of hands-on operations experience at Gupta Steels / Omnia Steels Pvt Ltd in Hyderabad, "
+                f"I have been directly responsible for:\n"
+                f"• Operational Systems & ERP: Managing daily ERP data integrity, CRM client follow-ups, and dispatch documentation.\n"
+                f"• Turnaround Time Reduction: Streamlining office procedures and cutting turnaround times on client requests by 90%.\n"
+                f"• Technical & Data Rigor: Leveraging an MSc in Computer Science for accurate Excel reporting, database integrity, and operational execution.\n\n"
+                f"I have attached my tailored resume for your review. I would welcome the opportunity to discuss how my skill set "
+                f"can support {job.company_name}'s operational goals.\n\n"
+                f"Would you be open to a brief introductory conversation this week?\n\n"
+                f"Thank you for your time and consideration.\n\n"
+                f"Warm regards,\n\n"
+                f"{candidate_name}\n"
+                f"Operations Executive | Hyderabad, India\n"
+                f"Phone: {candidate_phone}\n"
+                f"Email: {candidate_email}\n"
+                f"LinkedIn: linkedin.com/in/adil-raja-operations"
+            )
 
         sender = settings.EMAIL_FROM or settings.SMTP_USERNAME
         host = settings.SMTP_HOST
@@ -162,9 +201,9 @@ class EmailOutreachService:
         user = settings.SMTP_USERNAME
         password = settings.SMTP_PASSWORD
 
-        # If SMTP is not fully configured, record as safe mock send for development / testing
+        # If SMTP is not fully configured, or running under automated unit test suite, record as safe mock send
         now_ts = datetime.now(timezone.utc)
-        if not all([host, user, password, sender]) or "mock" in host.lower() or host == "smtp.example.com":
+        if not all([host, user, password, sender]) or "mock" in host.lower() or host == "smtp.example.com" or os.environ.get("PYTEST_CURRENT_TEST"):
             # Development / Mock Mode
             attempt.status = "SUCCESS"
             attempt.evidence = {
@@ -208,24 +247,22 @@ class EmailOutreachService:
             msg["Subject"] = subject
             msg.set_content(body_text)
 
-            # Attach resume text or files if available
-            if resume_version.full_text:
-                msg.add_attachment(
-                    resume_version.full_text.encode("utf-8"),
-                    maintype="text",
-                    subtype="plain",
-                    filename=f"Resume_{settings.CAREER_FULL_NAME.replace(' ', '_')}.txt"
-                )
+            # Attach candidate's exact original resume PDF (strictly no .txt files)
+            original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+            pdf_path_to_use = None
+            if os.path.exists(original_user_pdf):
+                pdf_path_to_use = original_user_pdf
+            elif resume_version and resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
+                pdf_path_to_use = resume_version.pdf_path
 
-            # If PDF exists, attach PDF as well
-            if resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
-                with open(resume_version.pdf_path, "rb") as f:
+            if pdf_path_to_use and os.path.exists(pdf_path_to_use):
+                with open(pdf_path_to_use, "rb") as f:
                     pdf_data = f.read()
                 msg.add_attachment(
                     pdf_data,
                     maintype="application",
                     subtype="pdf",
-                    filename=os.path.basename(resume_version.pdf_path)
+                    filename="SK_Adil_Raja_Resume.pdf"
                 )
 
             context = ssl.create_default_context()
@@ -284,6 +321,113 @@ class EmailOutreachService:
                 details={"error": str(e), "recipient": contact_email}
             )
             raise RuntimeError(f"SMTP transmission failed: {e}")
+
+    @classmethod
+    def send_follow_up_email(cls, task: FollowUpTask, db: Session) -> Dict[str, Any]:
+        """Dispatches an automated polite follow-up email to the recruiter with candidate's tailored resume attached."""
+        app = task.application
+        job = app.job
+        recipient = (app.primary_recipient or "").strip()
+        if not recipient:
+            raise ValueError(f"Application {app.id} does not have a primary recipient.")
+
+        subject = task.draft_subject or f"Following up: Application for {job.title} — {settings.CAREER_FULL_NAME}"
+        body_text = task.draft_body or (
+            f"Dear Hiring Team at {job.company_name},\n\n"
+            f"I hope this email finds you well. I recently submitted my application for the {job.title} position "
+            f"and wanted to politely follow up to reiterate my strong enthusiasm for the role.\n\n"
+            f"Please let me know if you need any additional information from my side.\n\n"
+            f"Warm regards,\n{settings.CAREER_FULL_NAME}\n{settings.CAREER_PHONE} | {settings.CAREER_EMAIL or settings.EMAIL_FROM}"
+        )
+
+        sender = settings.EMAIL_FROM or settings.SMTP_USERNAME
+        host = settings.SMTP_HOST
+        port = settings.SMTP_PORT
+        user = settings.SMTP_USERNAME
+        password = settings.SMTP_PASSWORD
+
+        now_ts = datetime.now(timezone.utc)
+        # Mock / Sandbox or Test environment
+        if not all([host, user, password, sender]) or "mock" in host.lower() or host == "smtp.example.com" or os.environ.get("PYTEST_CURRENT_TEST"):
+            task.status = "SENT"
+            task.sent_at = now_ts
+            email_rec = EmailModel(
+                application_id=app.id,
+                direction="outbound",
+                sender=sender or "sandbox@careerpilot.ai",
+                recipient=recipient,
+                subject=subject,
+                body_text=body_text,
+                status="SENT",
+                provider="mock_smtp",
+                sent_or_received_at=now_ts
+            )
+            db.add(email_rec)
+            db.commit()
+            return {"status": "SUCCESS", "message": "Follow-up email sent (Sandbox Mock)", "recipient": recipient}
+
+        # Real SMTP Transmission
+        try:
+            msg = EmailMessage()
+            msg["From"] = sender
+            msg["To"] = recipient
+            msg["Subject"] = subject
+            msg.set_content(body_text)
+
+            # Attach candidate's exact original resume PDF (strictly no .txt files)
+            original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+            pdf_path_to_use = None
+            rv = app.resume_version
+            if os.path.exists(original_user_pdf):
+                pdf_path_to_use = original_user_pdf
+            elif rv and rv.pdf_path and os.path.exists(rv.pdf_path):
+                pdf_path_to_use = rv.pdf_path
+
+            if pdf_path_to_use and os.path.exists(pdf_path_to_use):
+                with open(pdf_path_to_use, "rb") as f:
+                    pdf_data = f.read()
+                msg.add_attachment(
+                    pdf_data,
+                    maintype="application",
+                    subtype="pdf",
+                    filename="SK_Adil_Raja_Resume.pdf"
+                )
+
+            context = ssl.create_default_context()
+            with smtplib.SMTP(host, port, timeout=30) as server:
+                server.starttls(context=context)
+                server.login(user, password)
+                server.send_message(msg)
+
+            task.status = "SENT"
+            task.sent_at = now_ts
+            email_rec = EmailModel(
+                application_id=app.id,
+                direction="outbound",
+                sender=sender,
+                recipient=recipient,
+                subject=subject,
+                body_text=body_text,
+                status="SENT",
+                provider="smtp",
+                sent_or_received_at=now_ts
+            )
+            db.add(email_rec)
+            db.commit()
+
+            record_audit_log(
+                db=db,
+                action="follow_up_email_sent_smtp",
+                actor="follow_up_service",
+                entity_type="follow_up_task",
+                entity_id=str(task.id),
+                details={"recipient": recipient, "sequence": task.follow_up_sequence}
+            )
+            return {"status": "SUCCESS", "message": "Follow-up email sent successfully via SMTP.", "recipient": recipient}
+        except Exception as e:
+            task.notes = f"Follow-up delivery failed: {e}"
+            db.commit()
+            raise RuntimeError(f"Follow-up SMTP send failed: {e}")
 
     @classmethod
     def poll_inbound_recruiter_replies(cls, db: Session) -> List[Dict[str, Any]]:

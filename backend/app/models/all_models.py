@@ -17,12 +17,34 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=False)
-    role = Column(String(50), default="owner")
+    role = Column(String(50), default="member") # "admin", "owner", "member", "manager"
+    avatar_url = Column(String(500), default="/profile_photo.jpg")
+    google_id = Column(String(255), nullable=True, index=True)
+    allowed_features = Column(JSON, default=lambda: ["*"])
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     career_profile = relationship("CareerProfile", back_populates="user", uselist=False)
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+
+# 1.1 UserSession
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    session_token = Column(String(255), unique=True, index=True, nullable=False)
+    ip_address = Column(String(100), default="127.0.0.1")
+    user_agent = Column(String(500), default="Unknown")
+    device_name = Column(String(255), default="Desktop Browser")
+    auth_provider = Column(String(50), default="google") # "google", "password", "demo"
+    is_active = Column(Boolean, default=True)
+    logged_in_at = Column(DateTime(timezone=True), default=utcnow)
+    last_active_at = Column(DateTime(timezone=True), default=utcnow)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="sessions")
 
 # 2. CareerProfile
 class CareerProfile(Base):
@@ -37,6 +59,7 @@ class CareerProfile(Base):
     summary = Column(Text, default="")
     portfolio_url = Column(String(500), default="")
     linkedin_url = Column(String(500), default="")
+    avatar_url = Column(String(500), default="/profile_photo.jpg")
     preferred_contact_method = Column(String(50), default="email")
     verified_facts = Column(JSON, default=dict) # Dict of verified factual statements
     created_at = Column(DateTime(timezone=True), default=utcnow)
@@ -490,6 +513,8 @@ class AutomationPolicy(Base):
     min_match_score = Column(Integer, default=65)
     max_emails_per_hour = Column(Integer, default=10)
     search_interval_minutes = Column(Integer, default=240)
+    follow_up_interval_days = Column(Integer, default=15)
+    max_follow_up_cycles = Column(Integer, default=3)
     allowed_locations = Column(JSON, default=lambda: ["Hyderabad, India", "Remote", "Dubai, UAE"])
     allowed_job_families = Column(JSON, default=list)
     allowed_salary_min = Column(Float, default=0.0)
@@ -499,6 +524,15 @@ class AutomationPolicy(Base):
     search_location = Column(String(255), default="Hyderabad, Telangana, India")
     last_search_at = Column(DateTime(timezone=True), nullable=True)
     next_search_at = Column(DateTime(timezone=True), nullable=True)
+    custom_application_subject = Column(String(500), nullable=True)
+    custom_application_body = Column(Text, nullable=True)
+    custom_follow_up_1_body = Column(Text, nullable=True)
+    custom_follow_up_2_body = Column(Text, nullable=True)
+    custom_follow_up_3_body = Column(Text, nullable=True)
+    email_window_start_hour = Column(Integer, default=10) # 10:00 AM
+    email_window_end_hour = Column(Integer, default=18) # 6:00 PM (18:00)
+    timezone_offset_hours = Column(Float, default=5.5) # Indian Standard Time (IST, UTC+5:30)
+    enforce_business_hours = Column(Boolean, default=True) # Mails stop outside 10am-6pm window
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 # 27. ScheduledTask & Task Queue

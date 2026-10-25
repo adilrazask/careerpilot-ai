@@ -161,6 +161,62 @@ export const CareerProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Candidate Profile Showcase Card */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center md:items-start gap-6">
+        <div className="relative group">
+          <img
+            src="/profile_photo.jpg"
+            alt="SK Adil Raja"
+            className="h-28 w-28 rounded-2xl object-cover shadow-lg border-2 border-white dark:border-slate-800 ring-2 ring-blue-500/30"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+          <span className="absolute -bottom-1.5 -right-1.5 h-5 w-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-white font-bold" title="Verified Profile">
+            ✓
+          </span>
+        </div>
+
+        <div className="flex-1 text-center md:text-left space-y-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center justify-center md:justify-start gap-2">
+                {fullName || 'SK Adil Raja'}
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
+                  Verified Candidate
+                </span>
+              </h3>
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-0.5">
+                Business Operations & Procurement Executive • MSc Computer Science
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center md:justify-end gap-2 text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium text-slate-700 dark:text-slate-300">
+                📍 {currentLoc || 'Hyderabad, India'}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium text-slate-700 dark:text-slate-300">
+                ⏱ {experienceYears} Years Exp
+              </span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-3xl line-clamp-2">
+            {summary || 'Experienced operations executive skilled in supply chain coordination, procurement, ERP/SAP workflows, and logistics management.'}
+          </p>
+
+          <div className="pt-1 flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <span>✉️ <strong>{email || 'adilrazask@gmail.com'}</strong></span>
+            <span>📞 <strong>{phone || '+91 9583029294'}</strong></span>
+            {linkedin && (
+              <a href={linkedin} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                🔗 LinkedIn Profile
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Resume File Upload Box */}
       <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">

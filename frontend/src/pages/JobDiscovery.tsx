@@ -29,6 +29,23 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const [manualLoc, setManualLoc] = useState('Hyderabad, India');
   const [manualUrl, setManualUrl] = useState('');
   const [manualDesc, setManualDesc] = useState('');
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
+
+  const handleLiveSearch = async () => {
+    setIsSearchingLive(true);
+    try {
+      await api.searchJobs({
+        query: searchQuery || 'Operations Executive',
+        location: locFilter || 'Hyderabad, India',
+        max_results: 10
+      });
+      await fetchJobs();
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsSearchingLive(false);
+    }
+  };
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -106,6 +123,15 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleLiveSearch}
+            disabled={isSearchingLive}
+            className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
+            title="Scan LinkedIn and job portals for live openings"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSearchingLive ? 'animate-spin' : ''}`} />
+            {isSearchingLive ? 'Scanning Portals...' : 'Discover Live Jobs'}
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow flex items-center gap-1.5"
@@ -377,6 +403,20 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
               </div>
 
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.discoverApolloContacts(selectedJob.id);
+                      alert('Apollo HR & recruiter contacts discovered and verified! You can view them in the Contacts tab.');
+                      await fetchJobs();
+                    } catch (e: any) {
+                      alert('Apollo discovery: ' + (e.message || 'Check APOLLO_API_KEY in Integrations.'));
+                    }
+                  }}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition flex items-center gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Find Apollo HR
+                </button>
                 <button
                   onClick={() => {
                     setSelectedJob(null);

@@ -2,6 +2,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -9,7 +10,8 @@ from app.config import settings
 from app.database_init import init_db
 from app.routers import (
     dashboard, agent, jobs, profile, resumes, contacts,
-    applications, integrations, policy, audit, worker, voice
+    applications, integrations, policy, audit, worker, voice,
+    auth, admin
 )
 
 @asynccontextmanager
@@ -49,6 +51,8 @@ app.include_router(policy.router)
 app.include_router(audit.router)
 app.include_router(worker.router)
 app.include_router(voice.router)
+app.include_router(auth.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def root():
@@ -63,3 +67,17 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "HEALTHY"}
+
+@app.get("/profile_photo.jpg")
+def get_profile_photo():
+    photo_path = "./data/profile_photo.jpg"
+    if os.path.exists(photo_path):
+        return FileResponse(photo_path, media_type="image/jpeg")
+    return {"error": "Photo not found"}
+
+@app.get("/SK_Adil_Raja_Resume.pdf")
+def get_original_resume_pdf():
+    pdf_path = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+    if os.path.exists(pdf_path):
+        return FileResponse(pdf_path, media_type="application/pdf", filename="SK_Adil_Raja_Resume.pdf")
+    return {"error": "Resume PDF not found"}

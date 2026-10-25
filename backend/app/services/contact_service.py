@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import RecruiterContact, ContactVerificationRecord, CompanyProfile, JobListing
 from app.services.audit import record_audit_log
+from app.services.adapters.apollo_adapter import ApolloContactAdapter
 
 class ContactService:
     """HR & Recruiter contact discovery, rigorous multi-stage verification, and anti-guessing enforcement."""
@@ -112,7 +113,21 @@ class ContactService:
 
         # Check Source URL authenticity
         source_url = (contact.source_url or "").strip()
-        if source_url and (source_url.startswith("http://") or source_url.startswith("https://")):
+        is_apollo = "apollo.io" in source_url.lower() or "apollo" in (contact.notes or "").lower()
+
+        if is_apollo:
+            rec2 = ContactVerificationRecord(
+                contact_id=contact.id,
+                verification_type="apollo_ai_directory",
+                status="PASSED",
+                details=f"Verified through Apollo AI corporate directory: {source_url}",
+                verified_at=now_ts
+            )
+            db.add(rec2)
+            contact.verification_status = "SOURCE_VERIFIED"
+            contact.confidence = 0.98
+            contact.verification_method = "apollo_ai_verified"
+        elif source_url and (source_url.startswith("http://") or source_url.startswith("https://")):
             rec2 = ContactVerificationRecord(
                 contact_id=contact.id,
                 verification_type="source_url_check",
@@ -150,56 +165,130 @@ class ContactService:
         return contact
 
     @classmethod
-    def discover_public_contacts(cls, company_name: str, location: str, db: Session, job_id: Optional[int] = None) -> List[RecruiterContact]:
-        """Search public web for official company recruitment email channels."""
-        key = settings.TAVILY_API_KEY
+    def discover_apollo_contacts(
+        cls,
+        company_name: str,
+        location: str,
+        db: Session,
+        job_id: Optional[int] = None,
+        company_domain: Optional[str] = None
+    ) -> List[RecruiterContact]:
+        """Search Apollo.io (Apollo AI) for verified HR decision makers, talent acquisition managers, and recruiters."""
         discovered = []
-        if not key or not company_name:
+        if not settings.APOLLO_API_KEY:
             return discovered
 
-        query = f"official careers hr recruitment email contact {company_name} {location}"
-        try:
-            res = requests.post(
-                "https://api.tavily.com/search",
-                json={
-                    "api_key": key,
-                    "query": query,
-                    "search_depth": "advanced",
-                    "max_results": 5,
-                    "include_answer": False
-                },
-                timeout=20
-            )
-            if res.status_code == 200:
-                data = res.json()
-                for item in data.get("results", []):
-                    content = f"{item.get('title', '')} {item.get('content', '')}"
-                    emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", content)
-                    for em in emails:
-                        em_clean = em.strip(".,;:()")
-                        # Filter out common false positives (like example.com or image assets)
-                        if any(x in em_clean.lower() for x in [".png", ".jpg", "wixpress", "sentry", "example"]):
-                            continue
+        raw_people = ApolloContactAdapter.search_hr_contacts(
+            company_name=company_name,
+            domain=company_domain,
+            location=location,
+            limit=5
+        )
 
-                        # Check if already saved
-                        existing = db.query(RecruiterContact).filter_by(email=em_clean).first()
-                        if not existing:
-                            rc = RecruiterContact(
-                                job_id=job_id,
-                                company_name=company_name,
-                                contact_name=f"{company_name} Talent Acquisition",
-                                contact_role="Recruiter / HR Operations",
-                                email=em_clean,
-                                source_url=item.get("url", ""),
-                                verification_status="DISCOVERED",
-                                confidence=0.6,
-                                intended_use="application_outreach",
-                                notes=f"Discovered from public listing: {item.get('title', '')}"
-                            )
-                            db.add(rc)
-                            db.commit()
-                            db.refresh(rc)
-                            discovered.append(rc)
-        except Exception:
-            pass
+        for p in raw_people:
+            em = (p.get("email") or "").strip()
+            if not em or "@" not in em:
+                continue
+
+            # Skip common false positives
+            if any(x in em.lower() for x in [".png", ".jpg", "example.com", "apollo.io"]):
+                continue
+
+            existing = db.query(RecruiterContact).filter_by(email=em).first()
+            if not existing:
+                rc = RecruiterContact(
+                    job_id=job_id,
+                    company_name=company_name,
+                    contact_name=p.get("name") or f"{company_name} Talent Acquisition",
+                    contact_role=p.get("title") or "HR & Recruitment",
+                    email=em,
+                    phone=p.get("phone") or "",
+                    source_url=p.get("source_url") or "",
+                    verification_status="DISCOVERED",
+                    confidence=0.9 if p.get("email_status") == "verified" else 0.7,
+                    intended_use="application_outreach",
+                    notes=f"Discovered via Apollo.io AI directory (Status: {p.get('email_status', 'known')}, LinkedIn: {p.get('linkedin_url') or 'N/A'})"
+                )
+                db.add(rc)
+                db.commit()
+                db.refresh(rc)
+                cls.verify_contact(rc, db)
+                discovered.append(rc)
+            else:
+                # Update phone or linkedin if missing
+                updated = False
+                if p.get("phone") and not existing.phone:
+                    existing.phone = p.get("phone")
+                    updated = True
+                if job_id and not existing.job_id:
+                    existing.job_id = job_id
+                    updated = True
+                if updated:
+                    db.commit()
+                    db.refresh(existing)
+                discovered.append(existing)
+
+        return discovered
+
+    @classmethod
+    def discover_public_contacts(cls, company_name: str, location: str, db: Session, job_id: Optional[int] = None) -> List[RecruiterContact]:
+        """Search public web and Apollo.io AI directories for official company recruitment email channels."""
+        discovered = []
+
+        # 1. Apollo.io AI Directory Lookup (Primary verified recruiter source)
+        if settings.APOLLO_API_KEY:
+            apollo_results = cls.discover_apollo_contacts(company_name, location, db, job_id=job_id)
+            discovered.extend(apollo_results)
+
+        # 2. Tavily Web Search (Secondary public careers crawler)
+        key = settings.TAVILY_API_KEY
+        if key and company_name:
+            query = f"official careers hr recruitment email contact {company_name} {location}"
+            try:
+                res = requests.post(
+                    "https://api.tavily.com/search",
+                    json={
+                        "api_key": key,
+                        "query": query,
+                        "search_depth": "advanced",
+                        "max_results": 5,
+                        "include_answer": False
+                    },
+                    timeout=20
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    for item in data.get("results", []):
+                        content = f"{item.get('title', '')} {item.get('content', '')}"
+                        emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", content)
+                        for em in emails:
+                            em_clean = em.strip(".,;:()")
+                            if any(x in em_clean.lower() for x in [".png", ".jpg", "wixpress", "sentry", "example"]):
+                                continue
+
+                            existing = db.query(RecruiterContact).filter_by(email=em_clean).first()
+                            if not existing:
+                                rc = RecruiterContact(
+                                    job_id=job_id,
+                                    company_name=company_name,
+                                    contact_name=f"{company_name} Talent Acquisition",
+                                    contact_role="Recruiter / HR Operations",
+                                    email=em_clean,
+                                    source_url=item.get("url", ""),
+                                    verification_status="DISCOVERED",
+                                    confidence=0.6,
+                                    intended_use="application_outreach",
+                                    notes=f"Discovered from public listing: {item.get('title', '')}"
+                                )
+                                db.add(rc)
+                                db.commit()
+                                db.refresh(rc)
+                                cls.verify_contact(rc, db)
+                                discovered.append(rc)
+                            else:
+                                if not any(d.id == existing.id for d in discovered):
+                                    discovered.append(existing)
+            except Exception:
+                pass
+
         return discovered

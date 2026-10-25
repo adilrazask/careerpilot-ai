@@ -31,6 +31,8 @@ def get_policy(db: Session = Depends(get_db)):
         min_match_score=policy.min_match_score,
         max_emails_per_hour=policy.max_emails_per_hour,
         search_interval_minutes=policy.search_interval_minutes,
+        follow_up_interval_days=getattr(policy, "follow_up_interval_days", 15) or 15,
+        max_follow_up_cycles=getattr(policy, "max_follow_up_cycles", 3) or 3,
         allowed_locations=policy.allowed_locations or [],
         allowed_job_families=policy.allowed_job_families or [],
         allowed_salary_min=policy.allowed_salary_min or 0.0,
@@ -39,7 +41,12 @@ def get_policy(db: Session = Depends(get_db)):
         search_query=policy.search_query or "",
         search_location=policy.search_location or "",
         last_search_at=policy.last_search_at,
-        next_search_at=policy.next_search_at
+        next_search_at=policy.next_search_at,
+        custom_application_subject=getattr(policy, "custom_application_subject", None),
+        custom_application_body=getattr(policy, "custom_application_body", None),
+        custom_follow_up_1_body=getattr(policy, "custom_follow_up_1_body", None),
+        custom_follow_up_2_body=getattr(policy, "custom_follow_up_2_body", None),
+        custom_follow_up_3_body=getattr(policy, "custom_follow_up_3_body", None)
     )
 
 @router.put("", response_model=AutomationPolicySchema)

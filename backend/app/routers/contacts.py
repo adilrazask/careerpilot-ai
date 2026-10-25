@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import RecruiterContact, JobListing
-from app.schemas.schemas import RecruiterContactResponse, RecruiterContactCreate, VerifyContactRequest
+from app.schemas.schemas import RecruiterContactResponse, RecruiterContactCreate, VerifyContactRequest, ApolloContactSearchRequest
 from app.services.contact_service import ContactService
 from app.services.audit import record_audit_log
 
@@ -71,6 +71,70 @@ def discover_contacts(job_id: int, db: Session = Depends(get_db)):
             intended_use=c.intended_use,
             notes=c.notes or ""
         ) for c in verified_list
+    ]
+
+@router.post("/discover-apollo/{job_id}", response_model=List[RecruiterContactResponse])
+def discover_apollo_contacts_for_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(JobListing).filter_by(id=job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job listing not found.")
+
+    discovered = ContactService.discover_apollo_contacts(
+        company_name=job.company_name,
+        location=job.location,
+        db=db,
+        job_id=job.id
+    )
+    if any(vc.verification_status in ["EMAIL_VALIDATED", "SOURCE_VERIFIED"] for vc in discovered):
+        job.hr_contact_status = "VERIFIED"
+        db.commit()
+
+    return [
+        RecruiterContactResponse(
+            id=c.id,
+            job_id=c.job_id,
+            company_name=c.company_name,
+            contact_name=c.contact_name,
+            contact_role=c.contact_role,
+            email=c.email,
+            phone=c.phone,
+            source_url=c.source_url,
+            discovery_date=c.discovery_date,
+            verification_status=c.verification_status,
+            verification_method=c.verification_method,
+            last_verification_date=c.last_verification_date,
+            confidence=c.confidence,
+            intended_use=c.intended_use,
+            notes=c.notes or ""
+        ) for c in discovered
+    ]
+
+@router.post("/search-apollo", response_model=List[RecruiterContactResponse])
+def search_apollo_contacts(payload: ApolloContactSearchRequest, db: Session = Depends(get_db)):
+    discovered = ContactService.discover_apollo_contacts(
+        company_name=payload.company_name,
+        location=payload.location or "Hyderabad, India",
+        db=db,
+        company_domain=payload.domain
+    )
+    return [
+        RecruiterContactResponse(
+            id=c.id,
+            job_id=c.job_id,
+            company_name=c.company_name,
+            contact_name=c.contact_name,
+            contact_role=c.contact_role,
+            email=c.email,
+            phone=c.phone,
+            source_url=c.source_url,
+            discovery_date=c.discovery_date,
+            verification_status=c.verification_status,
+            verification_method=c.verification_method,
+            last_verification_date=c.last_verification_date,
+            confidence=c.confidence,
+            intended_use=c.intended_use,
+            notes=c.notes or ""
+        ) for c in discovered
     ]
 
 @router.post("/verify/{contact_id}", response_model=RecruiterContactResponse)

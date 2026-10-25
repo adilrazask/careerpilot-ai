@@ -3,10 +3,12 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 import requests
+import re
 
-from app.config import settings
+from app.config import settings, BASE_DIR
 from app.models import IntegrationCredentialsMetadata, SystemHealth
 from app.services.audit import record_audit_log
+from app.services.adapters.apollo_adapter import ApolloContactAdapter
 
 class IntegrationManager:
     """Manages the Integration Marketplace: test connections, toggle providers, and update credentials."""
@@ -65,6 +67,15 @@ class IntegrationManager:
                 message = "IMAP server connection syntax validated."
                 success = True
 
+            elif "apollo" in p_lower:
+                key = (config or {}).get("api_key") or settings.APOLLO_API_KEY
+                apollo_res = ApolloContactAdapter.test_connection(api_key=key)
+                if apollo_res["status"] in ["SUCCESS", "WARNING"]:
+                    success = True
+                    message = apollo_res["message"]
+                else:
+                    raise ValueError(apollo_res["message"])
+
             else:
                 success = True
                 message = f"Connection handshake verified for {provider_name}."
@@ -115,3 +126,68 @@ class IntegrationManager:
             details={"is_active": enable}
         )
         return {"status": "SUCCESS", "is_active": enable, "message": f"{provider_name} {'enabled' if enable else 'disabled'}."}
+
+    @classmethod
+    def configure_integration(
+        cls,
+        provider_name: str,
+        api_key: Optional[str],
+        config: Optional[Dict[str, Any]],
+        db: Session
+    ) -> Dict[str, Any]:
+        """Save configuration or API keys for a provider and persist to .env."""
+        meta = db.query(IntegrationCredentialsMetadata).filter_by(provider_name=provider_name).first()
+        if not meta:
+            return {"status": "ERROR", "message": f"Provider '{provider_name}' not found."}
+
+        p_lower = provider_name.lower()
+        env_path = BASE_DIR / ".env"
+
+        if "apollo" in p_lower and api_key is not None:
+            clean_key = api_key.strip()
+            settings.APOLLO_API_KEY = clean_key
+            meta.is_configured = bool(clean_key)
+            meta.is_active = bool(clean_key)
+            meta.masked_key_hint = f"{clean_key[:6]}...{clean_key[-4:]}" if len(clean_key) > 10 else "configured"
+
+            # Update .env
+            if env_path.exists():
+                content = env_path.read_text(encoding="utf-8")
+                if "APOLLO_API_KEY=" in content:
+                    content = re.sub(r"APOLLO_API_KEY=.*", f"APOLLO_API_KEY={clean_key}", content)
+                else:
+                    content += f"\nAPOLLO_API_KEY={clean_key}\n"
+                env_path.write_text(content, encoding="utf-8")
+
+        elif "tavily" in p_lower and api_key is not None:
+            clean_key = api_key.strip()
+            settings.TAVILY_API_KEY = clean_key
+            meta.is_configured = bool(clean_key)
+            meta.is_active = bool(clean_key)
+            meta.masked_key_hint = f"{clean_key[:6]}...{clean_key[-4:]}" if len(clean_key) > 10 else "configured"
+
+            if env_path.exists():
+                content = env_path.read_text(encoding="utf-8")
+                if "TAVILY_API_KEY=" in content:
+                    content = re.sub(r"TAVILY_API_KEY=.*", f"TAVILY_API_KEY={clean_key}", content)
+                else:
+                    content += f"\nTAVILY_API_KEY={clean_key}\n"
+                env_path.write_text(content, encoding="utf-8")
+
+        db.commit()
+        db.refresh(meta)
+
+        record_audit_log(
+            db=db,
+            action="integration_configured",
+            actor="owner",
+            entity_type="integration",
+            entity_id=provider_name,
+            details={"configured": meta.is_configured}
+        )
+        return {
+            "status": "SUCCESS",
+            "message": f"{provider_name} credentials updated successfully.",
+            "is_configured": meta.is_configured,
+            "masked_key_hint": meta.masked_key_hint
+        }

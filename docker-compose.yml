@@ -1,0 +1,66 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: careerpilot-backend
+    restart: unless-stopped
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/.env:/app/.env
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - careerpilot-network
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: careerpilot-worker
+    command: python worker.py
+    restart: unless-stopped
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/.env:/app/.env
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      - backend
+    networks:
+      - careerpilot-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: careerpilot-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - careerpilot-network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: careerpilot-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+    networks:
+      - careerpilot-network
+
+networks:
+  careerpilot-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

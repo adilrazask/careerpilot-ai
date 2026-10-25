@@ -1,5 +1,5 @@
 from app.models.all_models import (
-    User, CareerProfile, EmploymentHistory, Skill, Education, Certification,
+    User, UserSession, CareerProfile, EmploymentHistory, Skill, Education, Certification,
     CareerPreferences, ResumeFile, ResumeVersion, JobSource, SourceIntegration,
     CompanyProfile, JobListing, JobRequirement, JobMatchResult, RecruiterContact,
     ContactVerificationRecord, ApplicationRecord, ApplicationAttempt,
@@ -10,7 +10,7 @@ from app.models.all_models import (
 )
 
 __all__ = [
-    "User", "CareerProfile", "EmploymentHistory", "Skill", "Education", "Certification",
+    "User", "UserSession", "CareerProfile", "EmploymentHistory", "Skill", "Education", "Certification",
     "CareerPreferences", "ResumeFile", "ResumeVersion", "JobSource", "SourceIntegration",
     "CompanyProfile", "JobListing", "JobRequirement", "JobMatchResult", "RecruiterContact",
     "ContactVerificationRecord", "ApplicationRecord", "ApplicationAttempt",

@@ -136,6 +136,7 @@ export interface CareerProfile {
   summary: string;
   linkedin_url: string;
   portfolio_url: string;
+  avatar_url?: string;
   preferred_contact_method: string;
   verified_facts: Record<string, any>;
   employment_history: EmploymentHistory[];
@@ -214,6 +215,8 @@ export interface AutomationPolicy {
   min_match_score: number;
   max_emails_per_hour: number;
   search_interval_minutes: number;
+  follow_up_interval_days: number;
+  max_follow_up_cycles: number;
   allowed_locations: string[];
   allowed_job_families: string[];
   allowed_salary_min: number;
@@ -223,6 +226,11 @@ export interface AutomationPolicy {
   search_location: string;
   last_search_at: string | null;
   next_search_at: string | null;
+  custom_application_subject?: string | null;
+  custom_application_body?: string | null;
+  custom_follow_up_1_body?: string | null;
+  custom_follow_up_2_body?: string | null;
+  custom_follow_up_3_body?: string | null;
 }
 
 export interface AgentInstruction {
@@ -304,4 +312,41 @@ export interface VoiceLogItem {
   risk_level: string;
   spoken_response: string;
   created_at: string | null;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'owner' | 'member' | 'manager' | string;
+  avatar_url: string;
+  allowed_features: string[];
+  is_active: boolean;
+  created_at?: string;
+  active_sessions_count?: number;
+}
+
+export interface UserSession {
+  id: number;
+  user_id: number;
+  user_email: string;
+  user_name: string;
+  user_role: string;
+  avatar_url: string;
+  ip_address: string;
+  device_name: string;
+  user_agent: string;
+  auth_provider: string;
+  is_active: boolean;
+  logged_in_at: string;
+  last_active_at: string;
+  revoked_at?: string | null;
+  is_current: boolean;
+}
+
+export interface FeatureItem {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
 }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import (
     User, CareerProfile, EmploymentHistory, Skill, Education, Certification,
@@ -51,6 +52,42 @@ DEFAULT_SKILLS = [
 def init_db(db: Session = None):
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)
+
+    # Safe schema migrations for SQLite
+    with engine.connect() as conn:
+        from sqlalchemy import text
+        res = conn.execute(text("PRAGMA table_info(users)"))
+        cols = [r[1] for r in res.fetchall()]
+        if "avatar_url" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) DEFAULT '/profile_photo.jpg'"))
+        if "google_id" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)"))
+        if "allowed_features" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN allowed_features JSON DEFAULT '[\"*\"]'"))
+
+        # Safe migrations for automation_policies
+        res_ap = conn.execute(text("PRAGMA table_info(automation_policies)"))
+        cols_ap = [r[1] for r in res_ap.fetchall()]
+        if "custom_application_subject" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN custom_application_subject VARCHAR(500)"))
+        if "custom_application_body" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN custom_application_body TEXT"))
+        if "custom_follow_up_1_body" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN custom_follow_up_1_body TEXT"))
+        if "custom_follow_up_2_body" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN custom_follow_up_2_body TEXT"))
+        if "custom_follow_up_3_body" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN custom_follow_up_3_body TEXT"))
+        if "email_window_start_hour" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN email_window_start_hour INTEGER DEFAULT 10"))
+        if "email_window_end_hour" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN email_window_end_hour INTEGER DEFAULT 18"))
+        if "timezone_offset_hours" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN timezone_offset_hours FLOAT DEFAULT 5.5"))
+        if "enforce_business_hours" not in cols_ap:
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN enforce_business_hours BOOLEAN DEFAULT 1"))
+
+        conn.commit()
     
     close_db = False
     if db is None:
@@ -58,19 +95,43 @@ def init_db(db: Session = None):
         close_db = True
         
     try:
-        # 1. Default User
-        user = db.query(User).filter_by(id=1).first()
+        # 1. Super Admin User (SK Adil Raja)
+        user = db.query(User).filter((User.email == "adilrazask@gmail.com") | (User.id == 1)).first()
         if not user:
             user = User(
                 id=1,
-                email="owner@careerpilot.ai",
-                full_name="Operations Professional",
-                role="owner",
-                is_active=True
+                email="adilrazask@gmail.com",
+                full_name="SK Adil Raja",
+                role="admin",
+                is_active=True,
+                avatar_url="/profile_photo.jpg",
+                allowed_features=["*"]
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        else:
+            user.email = "adilrazask@gmail.com"
+            user.full_name = "SK Adil Raja"
+            user.role = "admin"
+            user.avatar_url = "/profile_photo.jpg"
+            user.allowed_features = ["*"]
+            db.commit()
+            db.refresh(user)
+
+        # 1.1 Team Member User for RBAC testing & multi-user management
+        member_user = db.query(User).filter_by(email="recruiter@careerpilot.ai").first()
+        if not member_user:
+            member_user = User(
+                email="recruiter@careerpilot.ai",
+                full_name="Team Recruiter",
+                role="member",
+                is_active=True,
+                avatar_url="/profile_photo.jpg",
+                allowed_features=["dashboard", "jobs", "resumes", "contacts"]
+            )
+            db.add(member_user)
+            db.commit()
 
         # 2. Default Career Profile
         profile = db.query(CareerProfile).filter_by(id=1).first()
@@ -215,6 +276,8 @@ def init_db(db: Session = None):
                 min_match_score=65,
                 max_emails_per_hour=10,
                 search_interval_minutes=240,
+                follow_up_interval_days=15,
+                max_follow_up_cycles=3,
                 allowed_locations=DEFAULT_LOCATIONS,
                 allowed_job_families=DEFAULT_JOB_FAMILIES,
                 allowed_salary_min=500000.0,
@@ -257,6 +320,13 @@ def init_db(db: Session = None):
                 "capabilities": ["Web Vacancy Discovery", "Company Careers Crawl", "Public HR Contact Search"],
                 "permissions": ["Read Public Web Data"],
                 "is_configured": True
+            },
+            {
+                "provider_name": "Apollo.io (Apollo AI)",
+                "category": "search",
+                "capabilities": ["Verified HR & Recruiter Emails", "Direct Recruiter Phone Numbers", "15-Day Follow-up Contact Sync", "B2B Decision Maker Search"],
+                "permissions": ["Search People & Organization Directory"],
+                "is_configured": bool(settings.APOLLO_API_KEY)
             },
             {
                 "provider_name": "SMTP Outbound Mail",

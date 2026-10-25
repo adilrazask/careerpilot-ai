@@ -73,64 +73,56 @@ class ResumeEngine:
 
     @classmethod
     def tailor(cls, job: JobListing, profile: CareerProfile, use_ai: bool = True) -> Dict[str, Any]:
-        """Generate a tailored resume and cover letter strictly grounded in verified facts."""
-        headline = f"{job.title} — {job.company_name} | Operations & Supply Chain Specialist"
+        """Generate a tailored resume and cover letter strictly grounded in verified facts.
+        RULE: Preserve candidate's exact summary, companies, titles, dates, and responsibilities.
+        Only adapt and prioritize relevant skills matching the target position.
+        """
+        headline = f"{job.title} — {job.company_name} | Operations & Digital Systems — ERP, CRM, Website Deployment & Client Retention"
         
-        # 1. Identify matching skills
+        # 1. Prioritize and match relevant skills for the target position
         job_desc_lower = (job.description or "").lower()
         prioritized_skills = []
         other_skills = []
         for s in profile.skills:
-            if s.name.lower() in job_desc_lower or any(w in job_desc_lower for w in s.name.lower().split()):
-                prioritized_skills.append(s.name)
+            s_name = s.name
+            if s_name.lower() in job_desc_lower or any(w in job_desc_lower for w in s_name.lower().split() if len(w) > 3):
+                prioritized_skills.append(s_name)
             else:
-                other_skills.append(s.name)
+                other_skills.append(s_name)
 
         all_skills_ordered = prioritized_skills + other_skills
 
-        # 2. Build truthful summary highlighting matching operations domains
-        summary = (
-            f"Versatile Operations Professional with {profile.total_experience_years}+ years of proven experience "
-            f"aligning with the requirements for {job.title} at {job.company_name}. Skilled in "
-            f"{', '.join(all_skills_ordered[:4])}. Proven ability to coordinate cross-departmental operations, "
-            f"manage vendor contracts, ensure ERP data integrity, and streamline logistics to achieve organizational goals."
+        # 2. Preserve candidate's EXACT summary without rewriting or fabricating
+        summary = profile.summary or (
+            "Operations Executive who runs the ERP system, CRM-based client follow-up, website deployment, "
+            "and daily administration for a steel trading company — one person covering ground usually split "
+            "across four roles. MSc in Computer Science underpins the technical side of the job: maintaining "
+            "the ERP, keeping the company website live and accurate, and managing data integrity across "
+            "Excel/Word-based reporting. Known for owning problems end-to-end rather than escalating them."
         )
 
-        # 3. Preserve work history and reorder responsibilities to emphasize relevance
+        # 3. Preserve candidate's EXACT employment history and responsibilities
         tailored_experience = []
         for emp in profile.employment_history:
-            # Reorder responsibilities based on keyword overlap with job
-            scored_resp = []
-            for resp in (emp.responsibilities or []):
-                overlap = sum(1 for w in resp.lower().split() if len(w) > 3 and w in job_desc_lower)
-                scored_resp.append((overlap, resp))
-            scored_resp.sort(key=lambda x: x[0], reverse=True)
-            sorted_bullets = [r[1] for r in scored_resp]
-
             tailored_experience.append({
                 "company": emp.company,
                 "job_title": emp.job_title,
                 "location": emp.location,
                 "start_date": emp.start_date,
                 "end_date": emp.end_date,
-                "responsibilities": sorted_bullets,
-                "achievements": emp.achievements or [],
-                "tools_used": emp.tools_used or []
+                "responsibilities": list(emp.responsibilities or []),
+                "achievements": list(emp.achievements or []),
+                "tools_used": list(emp.tools_used or [])
             })
 
-        # 4. Optional AI refinement for summary & cover letter
+        # 4. Tailor cover letter strictly grounded in verified background
         cover_letter = (
             f"Dear Hiring Team at {job.company_name},\n\n"
-            f"I am writing to express my enthusiastic interest in the {job.title} position currently open at {job.company_name}. "
-            f"With over {profile.total_experience_years} years of hands-on experience in business operations coordination, "
-            f"procurement, inventory management, and cross-functional administrative leadership, I am confident in my ability "
-            f"to make an immediate positive contribution to your team.\n\n"
-            f"Throughout my career, I have taken ownership of end-to-end operational workflows, including vendor negotiations, "
-            f"purchase order lifecycle management, ERP system record-keeping, and logistics coordination. At my previous roles, "
-            f"I successfully streamlined processes to reduce turnaround delays while maintaining rigorous documentation standards.\n\n"
-            f"The opportunity to bring my operational rigor, problem-solving skills, and dedication to {job.company_name} aligns "
-            f"closely with my career aspirations. I have attached my resume detailing my factual background and achievements.\n\n"
-            f"Thank you for your time and consideration. I welcome the opportunity to discuss how my qualifications align with your needs.\n\n"
+            f"I am writing to express my interest in the {job.title} position at {job.company_name}. "
+            f"With proven experience running ERP system management, CRM-based client retention, website deployment, and daily office administration at Gupta Steels/ Omnia Steels Pvt Ltd, combined with an MSc in Computer Science, I bring both operational rigor and technical capability to your team.\n\n"
+            f"In my current role, I cut turnaround time on client requests by 90%, reduced ERP data discrepancies by 60-70%, and improved on-time payment collection by 70% by actively managing 50+ key accounts. I am known for owning operational workflows end-to-end rather than escalating them.\n\n"
+            f"The opportunity to bring my operational discipline, problem-solving mindset, and dedication to {job.company_name} aligns closely with my career goals. I have attached my resume detailing my factual background and achievements.\n\n"
+            f"Thank you for your time and consideration. I look forward to speaking with you.\n\n"
             f"Sincerely,\n"
             f"{profile.full_name}\n"
             f"{profile.phone} | {profile.email}\n"
@@ -219,12 +211,12 @@ class ResumeEngine:
         doc.add_paragraph(resume_data.get("summary", ""))
 
         # Skills
-        doc.add_heading("Core Competencies", level=2)
-        skills_para = doc.add_paragraph(" • ".join(resume_data.get("skills", [])[:12]))
+        doc.add_heading("Core Skills", level=2)
+        skills_para = doc.add_paragraph(" • ".join(resume_data.get("skills", [])))
         skills_para.paragraph_format.space_after = docx.shared.Pt(8)
 
         # Experience
-        doc.add_heading("Professional Experience", level=2)
+        doc.add_heading("Experience", level=2)
         for exp in resume_data.get("experience", []):
             role_p = doc.add_paragraph()
             r_run = role_p.add_run(f"{exp['job_title']} — {exp['company']}")
@@ -233,20 +225,16 @@ class ResumeEngine:
             
             for b in exp.get("responsibilities", []):
                 doc.add_paragraph(b, style="List Bullet")
-            for a in exp.get("achievements", []):
-                p_ach = doc.add_paragraph(f"Achievement: {a}", style="List Bullet")
-                p_ach.runs[0].italic = True
 
         # Education
         doc.add_heading("Education", level=2)
         for edu in profile.education:
-            doc.add_paragraph(f"{edu.degree} in {edu.field_of_study} — {edu.institution} ({edu.graduation_year})")
+            doc.add_paragraph(f"• {edu.degree} — {edu.institution}, {edu.graduation_year}")
 
-        # Certifications
-        if profile.certifications:
-            doc.add_heading("Certifications", level=2)
-            for c in profile.certifications:
-                doc.add_paragraph(f"{c.name} — {c.issuing_organization} ({c.issue_date})")
+        # Technical Skills
+        doc.add_heading("Technical Skills", level=2)
+        doc.add_paragraph("• Windows 7, 10 & 11 | MS Office (Excel, Word) | Typing speed: 50 WPM")
+        doc.add_paragraph("• Tally & Focus | In-house ERP systems | Website deployment & hosting")
 
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         doc.save(output_path)
@@ -323,12 +311,12 @@ class ResumeEngine:
 
         # Name & Contact
         story.append(Paragraph(profile.full_name, name_style))
-        story.append(Paragraph(f"{profile.current_location} | {profile.phone} | {profile.email} | {profile.linkedin_url}", contact_style))
+        story.append(Paragraph(f"{profile.current_location} | {profile.phone} | {profile.email}", contact_style))
         story.append(Spacer(1, 4))
         story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E0"), spaceAfter=8))
 
         # Headline
-        story.append(Paragraph(f"<b>Target Role:</b> {resume_data.get('headline', '')}", body_style))
+        story.append(Paragraph(f"<b>{resume_data.get('headline', '')}</b>", body_style))
         story.append(Spacer(1, 6))
 
         # Summary
@@ -336,33 +324,30 @@ class ResumeEngine:
         story.append(Paragraph(resume_data.get("summary", ""), body_style))
         story.append(Spacer(1, 6))
 
-        # Skills
-        story.append(Paragraph("CORE COMPETENCIES & SOFTWARE", section_style))
-        skills_text = " • ".join(resume_data.get("skills", [])[:10])
+        # Skills (prioritized as per target position)
+        story.append(Paragraph("CORE SKILLS", section_style))
+        skills_text = " • ".join(resume_data.get("skills", []))
         story.append(Paragraph(skills_text, body_style))
         story.append(Spacer(1, 6))
 
         # Experience
-        story.append(Paragraph("PROFESSIONAL EXPERIENCE", section_style))
+        story.append(Paragraph("EXPERIENCE", section_style))
         for exp in resume_data.get("experience", []):
             role_line = f"{exp['job_title']} — {exp['company']} | {exp['location']} ({exp['start_date']} – {exp['end_date']})"
             story.append(Paragraph(role_line, role_header_style))
-            for b in exp.get("responsibilities", [])[:4]: # Keep concise for 1-2 pages ATS
+            for b in exp.get("responsibilities", []):
                 story.append(Paragraph(f"• {b}", bullet_style))
-            for a in exp.get("achievements", []):
-                story.append(Paragraph(f"<i>Key Result: {a}</i>", bullet_style))
             story.append(Spacer(1, 4))
 
         # Education
         story.append(Paragraph("EDUCATION", section_style))
         for edu in profile.education:
-            story.append(Paragraph(f"{edu.degree} in {edu.field_of_study} — {edu.institution} ({edu.graduation_year})", body_style))
+            story.append(Paragraph(f"• {edu.degree} — {edu.institution}, {edu.graduation_year}", body_style))
 
-        # Certifications
-        if profile.certifications:
-            story.append(Paragraph("CERTIFICATIONS", section_style))
-            for c in profile.certifications:
-                story.append(Paragraph(f"{c.name} — {c.issuing_organization} ({c.issue_date})", body_style))
+        # Technical Skills
+        story.append(Paragraph("TECHNICAL SKILLS", section_style))
+        story.append(Paragraph("• Windows 7, 10 & 11 | MS Office (Excel, Word) | Typing speed: 50 WPM", body_style))
+        story.append(Paragraph("• Tally & Focus | In-house ERP systems | Website deployment & hosting", body_style))
 
         doc.build(story)
         return output_path

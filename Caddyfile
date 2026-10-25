@@ -1,0 +1,4 @@
+# Replace with your actual domain name (e.g. adilraja.com or jobs.adilraja.com)
+{$DOMAIN_NAME:localhost} {
+    reverse_proxy frontend:80
+}

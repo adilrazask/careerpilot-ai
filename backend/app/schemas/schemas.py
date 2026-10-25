@@ -71,6 +71,7 @@ class CareerProfileResponse(BaseModel):
     summary: str
     linkedin_url: str
     portfolio_url: str
+    avatar_url: Optional[str] = "/profile_photo.jpg"
     preferred_contact_method: str
     verified_facts: Dict[str, Any]
     employment_history: List[EmploymentHistorySchema] = Field(default_factory=list)
@@ -88,6 +89,7 @@ class CareerProfileUpdateRequest(BaseModel):
     summary: Optional[str] = None
     linkedin_url: Optional[str] = None
     portfolio_url: Optional[str] = None
+    avatar_url: Optional[str] = None
     preferred_contact_method: Optional[str] = None
     verified_facts: Optional[Dict[str, Any]] = None
 
@@ -258,6 +260,8 @@ class AutomationPolicySchema(BaseModel):
     min_match_score: int = 65
     max_emails_per_hour: int = 10
     search_interval_minutes: int = 240
+    follow_up_interval_days: int = 15
+    max_follow_up_cycles: int = 3
     allowed_locations: List[str] = Field(default_factory=list)
     allowed_job_families: List[str] = Field(default_factory=list)
     allowed_salary_min: float = 0.0
@@ -267,6 +271,11 @@ class AutomationPolicySchema(BaseModel):
     search_location: str = "Hyderabad, India"
     last_search_at: Optional[datetime] = None
     next_search_at: Optional[datetime] = None
+    custom_application_subject: Optional[str] = None
+    custom_application_body: Optional[str] = None
+    custom_follow_up_1_body: Optional[str] = None
+    custom_follow_up_2_body: Optional[str] = None
+    custom_follow_up_3_body: Optional[str] = None
 
 # --- AI Agent Workspace Schemas ---
 class AgentInstructionRequest(BaseModel):
@@ -302,6 +311,17 @@ class TestIntegrationRequest(BaseModel):
 class ToggleIntegrationRequest(BaseModel):
     provider_name: str
     enable: bool
+
+class ConfigureIntegrationRequest(BaseModel):
+    provider_name: str
+    api_key: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
+
+class ApolloContactSearchRequest(BaseModel):
+    company_name: str
+    domain: Optional[str] = None
+    location: Optional[str] = "Hyderabad, India"
+    limit: Optional[int] = 5
 
 # --- Dashboard & Activity Metrics ---
 class DashboardMetricsResponse(BaseModel):

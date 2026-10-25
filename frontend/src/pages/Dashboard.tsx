@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import {
   Compass, CheckCircle2, FileCheck, Send, Mail, Clock,
   MessageSquare, Calendar, XCircle, ShieldCheck, AlertTriangle,
-  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert
+  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -42,28 +42,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
     }
   };
 
+  const handleOneClickBatch = async () => {
+    setLoading(true);
+    try {
+      const res = await api.dispatchBatch(10, false);
+      if (res.status === 'PAUSED_HOURS') {
+        const force = window.confirm(`${res.message}\n\nWould you like to Force Dispatch now regardless of hours?`);
+        if (force) {
+          const forceRes = await api.dispatchBatch(10, true);
+          alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!`);
+        }
+      } else if (res.status === 'DAILY_LIMIT_REACHED') {
+        alert(res.message);
+      } else {
+        alert(`Successfully dispatched ${res.dispatched_count} application(s) with your exact resume PDF!\nRemaining daily allowance: ${res.remaining_daily_allowance}`);
+      }
+      onRefresh();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Dispatch failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isPaused = metrics.agent_status === 'PAUSED';
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Top Banner: Worker Health & Policy Summary */}
       <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-900 to-indigo-900 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${metrics.worker_is_alive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-            <span className="text-xs font-semibold uppercase tracking-wider text-blue-200">
-              Worker Engine: {metrics.worker_is_alive ? 'Running Online' : 'Offline / Standby'}
-            </span>
+        <div className="flex items-center gap-4">
+          <img
+            src="/profile_photo.jpg"
+            alt="SK Adil Raja"
+            className="h-16 w-16 rounded-2xl object-cover border-2 border-white/30 shadow-md flex-shrink-0"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${metrics.worker_is_alive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-200">
+                Worker Engine: {metrics.worker_is_alive ? 'Running Online' : 'Offline / Standby'}
+              </span>
+            </div>
+            <h2 className="text-xl font-bold">Autonomous Recruitment Employee: SK Adil Raja</h2>
+            <p className="text-xs text-blue-100/80 max-w-2xl leading-relaxed">
+              Operating under verified career profile for Hyderabad, UAE, and Remote operations roles.
+              Truthful ATS tailoring enabled; unauthorized email delivery strictly blocked.
+            </p>
           </div>
-          <h2 className="text-xl font-bold">Autonomous Recruitment Employee</h2>
-          <p className="text-xs text-blue-100/80 max-w-2xl leading-relaxed">
-            Operating under verified career profile for Hyderabad, UAE, and Remote operations roles.
-            Truthful ATS tailoring enabled; unauthorized email delivery strictly blocked.
-          </p>
         </div>
 
         {/* Quick Controller Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleOneClickBatch}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-900 transition shadow-md flex items-center gap-1.5"
+            title="Single-Click Apply: Sends to up to 10 prepared jobs using your exact resume PDF"
+          >
+            <Zap className="h-3.5 w-3.5 text-blue-600 fill-blue-600" />
+            <span>One-Click Apply (Max 10)</span>
+          </button>
           <button
             onClick={() => handleAction(api.resumeAll)}
             disabled={loading || !isPaused}
@@ -85,6 +127,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
           >
             <ShieldAlert className="h-3.5 w-3.5" /> Stop All
           </button>
+        </div>
+      </div>
+
+      {/* Operating Window & Outreach Guard Status Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-400">Operating Hours</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">10:00 AM – 6:00 PM IST</p>
+            <p className="text-[10px] text-slate-500">Mails pause after 6 PM</p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+            <Mail className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-400">Daily Mail Cap</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Max 10 Emails / Day</p>
+            <p className="text-[10px] text-slate-500">Protects sender domain reputation</p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+            <FileCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-400">Active Attachment</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate max-w-[130px]">SK_Adil_Raja_Resume.pdf</p>
+            <p className="text-[10px] text-emerald-600 font-medium">Original 1.2 MB PDF locked</p>
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-slate-400">Follow-up Cadence</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Tomorrow, +15d, +30d</p>
+            <p className="text-[10px] text-slate-500">Halts automatically on reply</p>
+          </div>
         </div>
       </div>
 

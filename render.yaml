@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: careerpilot-backend
+    env: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: CAREER_FULL_NAME
+        value: "SK Adil Raja"
+      - key: CAREER_PHONE
+        value: "+91 9583029294"
+      - key: CAREER_EMAIL
+        value: "adilrazask@gmail.com"
+      - key: EMAIL_FROM
+        value: "adilrazask@gmail.com"
+
+  - type: worker
+    name: careerpilot-worker
+    env: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python worker.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CAREER_FULL_NAME
+        value: "SK Adil Raja"

@@ -19,6 +19,20 @@ from app.services.email_service import EmailOutreachService
 from app.services.follow_up_service import FollowUpService
 from app.services.audit import record_audit_log
 
+def is_within_business_hours(policy: AutomationPolicy) -> bool:
+    """Checks whether current time is within 10:00 AM - 6:00 PM local time (IST)."""
+    if not getattr(policy, "enforce_business_hours", True):
+        return True
+
+    start_hour = getattr(policy, "email_window_start_hour", 10) or 10
+    end_hour = getattr(policy, "email_window_end_hour", 18) or 18
+    tz_offset = getattr(policy, "timezone_offset_hours", 5.5) or 5.5
+
+    now_utc = datetime.now(timezone.utc)
+    local_time = now_utc + timedelta(hours=tz_offset)
+
+    return start_hour <= local_time.hour < end_hour
+
 WORKER_ID = f"worker-{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 
 class DurableScheduler:
@@ -123,34 +137,43 @@ class DurableScheduler:
 
         # Step 1: Autonomous Vacancy Discovery (if enabled)
         if policy.enable_auto_discovery:
+            query = policy.search_query or "Operations Executive"
+            loc = policy.search_location or "Hyderabad, India"
+            new_leads = []
+
+            # A. Live LinkedIn public job ingestion
+            linkedin = SourceManager.get_adapter("linkedin")
+            if linkedin:
+                new_leads.extend(linkedin.search_jobs(query, loc, limit=5))
+
+            # B. Tavily search (if configured)
             tavily = SourceManager.get_adapter("tavily_search")
             if tavily and settings.TAVILY_API_KEY:
-                query = policy.search_query or "Operations Executive"
-                loc = policy.search_location or "Hyderabad, India"
-                new_leads = tavily.search_jobs(query, loc, limit=5)
-                existing = db.query(JobListing).all()
-                for lead in new_leads:
-                    if not SourceManager.is_duplicate(lead, existing):
-                        jl = JobListing(
-                            title=lead["title"],
-                            company_name=lead["company_name"],
-                            location=lead["location"],
-                            source_platform=lead["source_platform"],
-                            original_url=lead["original_url"],
-                            canonical_url=lead["canonical_url"],
-                            description=lead["description"],
-                            vacancy_status="VERIFIED_OPEN",
-                            application_method="email",
-                            date_discovered=datetime.now(timezone.utc)
-                        )
-                        db.add(jl)
-                        db.commit()
-                        existing.append(jl)
-                        summary["vacancies_discovered"] += 1
+                new_leads.extend(tavily.search_jobs(query, loc, limit=5))
 
-                policy.last_search_at = datetime.now(timezone.utc)
-                policy.next_search_at = policy.last_search_at + timedelta(minutes=policy.search_interval_minutes)
-                db.commit()
+            existing = db.query(JobListing).all()
+            for lead in new_leads:
+                if not SourceManager.is_duplicate(lead, existing):
+                    jl = JobListing(
+                        title=lead["title"],
+                        company_name=lead["company_name"],
+                        location=lead["location"],
+                        source_platform=lead["source_platform"],
+                        original_url=lead["original_url"],
+                        canonical_url=lead["canonical_url"],
+                        description=lead["description"],
+                        vacancy_status="VERIFIED_OPEN",
+                        application_method="email",
+                        date_discovered=datetime.now(timezone.utc)
+                    )
+                    db.add(jl)
+                    db.commit()
+                    existing.append(jl)
+                    summary["vacancies_discovered"] += 1
+
+            policy.last_search_at = datetime.now(timezone.utc)
+            policy.next_search_at = policy.last_search_at + timedelta(minutes=policy.search_interval_minutes)
+            db.commit()
 
         # Step 2: Autonomous Job Matching
         if policy.enable_auto_matching:
@@ -212,16 +235,21 @@ class DurableScheduler:
                     db.commit()
                     summary["resumes_tailored"] += 1
 
-        # Step 5: Unattended Applications (ONLY if enabled by explicit owner policy)
-        if policy.is_autonomous_enabled and policy.enable_unattended_email_applications and not policy.pause_applications_only:
-            # Check daily application cap
+        # Step 5: Unattended Applications (ONLY if within 10:00 AM - 6:00 PM IST business window)
+        can_send_emails = is_within_business_hours(policy)
+        if not can_send_emails:
+            print("[Outreach Guard] Current local time is outside business hours (10:00 AM - 6:00 PM IST). Applications and follow-up emails are held until 10:00 AM.", flush=True)
+
+        if can_send_emails and policy.is_autonomous_enabled and policy.enable_unattended_email_applications and not policy.pause_applications_only:
+            # Check daily application cap (max 10 emails/day)
             today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             apps_today = db.query(ApplicationRecord).filter(
                 ApplicationRecord.created_at >= today_start,
                 ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"])
             ).count()
 
-            remaining_allowance = max(0, policy.max_applications_per_day - apps_today)
+            max_today = min(policy.max_applications_per_day or 10, 10)
+            remaining_allowance = max(0, max_today - apps_today)
             if remaining_allowance > 0:
                 # Find qualifying jobs: verified open, verified contact, match score >= threshold, not previously applied
                 qualifying = db.query(JobListing).filter(
@@ -231,9 +259,9 @@ class DurableScheduler:
                 ).limit(remaining_allowance).all()
 
                 for qj in qualifying:
-                    # Verify no prior application
+                    # Verify no prior submitted application
                     prior_app = db.query(ApplicationRecord).filter_by(job_id=qj.id).first()
-                    if prior_app:
+                    if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED", "SUBMISSION_IN_PROGRESS"]:
                         continue
 
                     # Get contact
@@ -246,16 +274,24 @@ class DurableScheduler:
                     if not rv:
                         continue
 
-                    # Create Application Record
-                    app_rec = ApplicationRecord(
-                        job_id=qj.id,
-                        resume_version_id=rv.id,
-                        current_status="APPLICATION_READY",
-                        submission_method="email",
-                        primary_recipient=contact.email,
-                        unattended_approved=True
-                    )
-                    db.add(app_rec)
+                    if prior_app and prior_app.current_status == "APPLICATION_READY":
+                        app_rec = prior_app
+                        app_rec.unattended_approved = True
+                        if not app_rec.resume_version_id:
+                            app_rec.resume_version_id = rv.id
+                        if not app_rec.primary_recipient:
+                            app_rec.primary_recipient = contact.email
+                    else:
+                        # Create Application Record
+                        app_rec = ApplicationRecord(
+                            job_id=qj.id,
+                            resume_version_id=rv.id,
+                            current_status="APPLICATION_READY",
+                            submission_method="email",
+                            primary_recipient=contact.email,
+                            unattended_approved=True
+                        )
+                        db.add(app_rec)
                     db.commit()
                     db.refresh(app_rec)
 
@@ -276,10 +312,128 @@ class DurableScheduler:
             inbox_results = EmailOutreachService.poll_inbound_recruiter_replies(db)
             summary["inbound_emails_processed"] = len(inbox_results)
 
-        # Step 7: Process Due Follow-ups
-        if policy.enable_auto_follow_ups:
+        # Step 7: Process Due Follow-ups (ONLY within 10am - 6pm window)
+        if can_send_emails and policy.enable_auto_follow_ups and not policy.pause_applications_only:
             fu_results = FollowUpService.process_due_follow_ups(db)
             summary["follow_ups_processed"] = len(fu_results)
 
         cls.register_or_update_heartbeat(db, current_task="IDLE")
         return {"status": "SUCCESS", "summary": summary}
+
+    @classmethod
+    def dispatch_prepared_batch(cls, db: Session, max_count: int = 10, force: bool = False) -> Dict[str, Any]:
+        """One-click batch application dispatch: applies up to remaining daily limit (max 10) with strict company deduplication."""
+        policy = db.query(AutomationPolicy).filter_by(id=1).first()
+        if not policy:
+            return {"status": "ERROR", "message": "Automation policy not found."}
+
+        # Check operating hours (10:00 AM - 6:00 PM IST) unless forced
+        if not force and not is_within_business_hours(policy):
+            return {
+                "status": "PAUSED_HOURS",
+                "message": "Outbound emails are paused outside business hours (10:00 AM - 6:00 PM IST). Use Force Dispatch to override or wait until 10:00 AM.",
+                "dispatched_count": 0
+            }
+
+        # Daily limit check (max 10 emails/day)
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        apps_today = db.query(ApplicationRecord).filter(
+            ApplicationRecord.created_at >= today_start,
+            ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"])
+        ).count()
+
+        daily_limit = min(policy.max_applications_per_day or 10, 10)
+        remaining_today = max(0, daily_limit - apps_today)
+        if remaining_today <= 0 and not force:
+            return {
+                "status": "DAILY_LIMIT_REACHED",
+                "message": f"Daily limit of {daily_limit} emails reached for today. Next emails will send tomorrow at 10:00 AM.",
+                "dispatched_count": 0
+            }
+
+        # Track already applied companies (zero duplicate company outreach)
+        applied_apps = db.query(ApplicationRecord).all()
+        applied_companies = set()
+        for a in applied_apps:
+            if a.job and a.job.company_name:
+                applied_companies.add(a.job.company_name.lower().strip())
+
+        # Select prepared jobs that have verified contact
+        target_count = min(remaining_today if not force else max_count, max_count)
+        candidates = db.query(JobListing).filter(
+            JobListing.vacancy_status == "VERIFIED_OPEN",
+            JobListing.hr_contact_status == "VERIFIED"
+        ).order_by(JobListing.match_score.desc()).all()
+
+        dispatched = []
+        for job in candidates:
+            if len(dispatched) >= target_count:
+                break
+
+            company_key = (job.company_name or "").lower().strip()
+            if company_key in applied_companies:
+                continue
+
+            contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+            if not contact or not contact.email:
+                continue
+
+            rv = db.query(ResumeVersion).filter_by(job_id=job.id).first()
+            if not rv:
+                profile = db.query(CareerProfile).first()
+                if profile:
+                    tailored = ResumeEngine.tailor(job, profile, use_ai=False)
+                    rv = ResumeVersion(
+                        profile_id=profile.id,
+                        job_id=job.id,
+                        version_name=tailored["version_name"],
+                        headline=tailored["headline"],
+                        summary=tailored["summary"],
+                        full_text=tailored["full_text"],
+                        pdf_path="./data/resumes/SK_Adil_Raja_Resume.pdf"
+                    )
+                    db.add(rv)
+                    db.commit()
+
+            # Create or update application record
+            prior_app = db.query(ApplicationRecord).filter_by(job_id=job.id).first()
+            if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"]:
+                continue
+
+            if not prior_app:
+                prior_app = ApplicationRecord(
+                    job_id=job.id,
+                    resume_version_id=rv.id if rv else None,
+                    current_status="APPLICATION_READY",
+                    submission_method="email",
+                    primary_recipient=contact.email
+                )
+                db.add(prior_app)
+                db.commit()
+                db.refresh(prior_app)
+
+            # Transmit application email using user's exact PDF
+            try:
+                res = EmailOutreachService.send_application_email(prior_app, rv, db, is_unattended=False)
+                job.application_status = prior_app.current_status
+                applied_companies.add(company_key)
+
+                # Schedule the 3 follow-ups: Tomorrow, +15d, +30d
+                FollowUpService.schedule_follow_up_if_eligible(prior_app, db)
+
+                dispatched.append({
+                    "company": job.company_name,
+                    "title": job.title,
+                    "recipient": contact.email,
+                    "status": "SENT"
+                })
+            except Exception as e:
+                job.notes = f"Failed to send: {e}"
+            db.commit()
+
+        return {
+            "status": "SUCCESS",
+            "dispatched_count": len(dispatched),
+            "dispatched_jobs": dispatched,
+            "remaining_daily_allowance": max(0, daily_limit - (apps_today + len(dispatched)))
+        }

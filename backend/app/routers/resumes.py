@@ -102,6 +102,9 @@ def download_resume(version_id: int, doc_format: str, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Resume version not found.")
 
     if doc_format.lower() == "pdf":
+        original_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+        if os.path.exists(original_pdf):
+            return FileResponse(original_pdf, media_type="application/pdf", filename="SK_Adil_Raja_Resume.pdf")
         if not rv.pdf_path or not os.path.exists(rv.pdf_path):
             raise HTTPException(status_code=404, detail="PDF file not found on disk.")
         return FileResponse(rv.pdf_path, media_type="application/pdf", filename=f"Resume_{rv.version_name}.pdf")

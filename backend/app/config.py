@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # Web Search & Discovery
     TAVILY_API_KEY: str = ""
     SERPER_API_KEY: str = ""
+    APOLLO_API_KEY: str = ""
     
     # Outbound Email (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"
@@ -60,6 +61,8 @@ class Settings(BaseSettings):
     SEARCH_INTERVAL_MINUTES: int = 240
     FOLLOW_UP_FIRST_DAYS: int = 5
     FOLLOW_UP_SECOND_DAYS: int = 7
+    FOLLOW_UP_INTERVAL_DAYS: int = 15
+    MAX_FOLLOW_UPS: int = 3
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

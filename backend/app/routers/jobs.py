@@ -138,11 +138,19 @@ def get_job_detail(job_id: int, db: Session = Depends(get_db)):
 
 @router.post("/search")
 def trigger_search(payload: JobSearchQuery, db: Session = Depends(get_db)):
-    tavily = SourceManager.get_adapter("tavily_search")
-    if not tavily:
-        raise HTTPException(status_code=500, detail="Search adapter not available.")
+    leads = []
+    # 1. Query live LinkedIn adapter
+    linkedin = SourceManager.get_adapter("linkedin")
+    if linkedin:
+        linkedin_leads = linkedin.search_jobs(payload.query, payload.location, limit=payload.max_results)
+        leads.extend(linkedin_leads)
 
-    leads = tavily.search_jobs(payload.query, payload.location, limit=payload.max_results)
+    # 2. Query Tavily aggregator if configured
+    tavily = SourceManager.get_adapter("tavily_search")
+    if tavily and settings.TAVILY_API_KEY:
+        tavily_leads = tavily.search_jobs(payload.query, payload.location, limit=payload.max_results)
+        leads.extend(tavily_leads)
+
     existing = db.query(JobListing).all()
     profile = db.query(CareerProfile).filter_by(id=1).first()
 

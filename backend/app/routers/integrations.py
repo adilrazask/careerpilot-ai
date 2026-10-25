@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import IntegrationCredentialsMetadata
-from app.schemas.schemas import IntegrationMetadataResponse, TestIntegrationRequest, ToggleIntegrationRequest
+from app.schemas.schemas import IntegrationMetadataResponse, TestIntegrationRequest, ToggleIntegrationRequest, ConfigureIntegrationRequest
 from app.services.integrations import IntegrationManager
 
 router = APIRouter(prefix="/api/integrations", tags=["Integration Marketplace"])
@@ -36,4 +36,9 @@ def test_integration(payload: TestIntegrationRequest, db: Session = Depends(get_
 @router.post("/toggle")
 def toggle_integration(payload: ToggleIntegrationRequest, db: Session = Depends(get_db)):
     res = IntegrationManager.toggle_integration(payload.provider_name, payload.enable, db)
+    return res
+
+@router.post("/configure")
+def configure_integration(payload: ConfigureIntegrationRequest, db: Session = Depends(get_db)):
+    res = IntegrationManager.configure_integration(payload.provider_name, payload.api_key, payload.config, db)
     return res
