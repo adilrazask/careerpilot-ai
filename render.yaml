@@ -9,6 +9,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: RUN_WORKER_IN_APP
+        value: "true"
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
@@ -21,16 +23,3 @@ services:
         value: "adilrazask@gmail.com"
       - key: EMAIL_FROM
         value: "adilrazask@gmail.com"
-
-  - type: worker
-    name: careerpilot-worker
-    env: python
-    rootDir: backend
-    plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python worker.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: CAREER_FULL_NAME
-        value: "SK Adil Raja"

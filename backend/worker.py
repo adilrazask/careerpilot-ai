@@ -35,7 +35,7 @@ def run_single_cycle():
     finally:
         db.close()
 
-def worker_loop():
+def worker_loop(stop_event=None):
     global stop_requested
     init_db()
     print(f"==================================================", flush=True)
@@ -44,7 +44,10 @@ def worker_loop():
     print(f" Press Ctrl+C to stop gracefully.", flush=True)
     print(f"==================================================", flush=True)
 
-    while not stop_requested:
+    def is_stopped():
+        return stop_requested or (stop_event is not None and stop_event.is_set())
+
+    while not is_stopped():
         db = SessionLocal()
         try:
             # Heartbeat & check policy
@@ -69,7 +72,7 @@ def worker_loop():
 
         # Sleep in small slices to respond promptly to signals
         elapsed = 0
-        while elapsed < interval_secs and not stop_requested:
+        while elapsed < interval_secs and not is_stopped():
             time.sleep(2)
             elapsed += 2
 
