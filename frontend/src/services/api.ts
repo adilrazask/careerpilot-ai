@@ -205,6 +205,10 @@ export const api = {
     const res = await axios.get(`${API_BASE}/applications`, { params: { status } });
     return res.data;
   },
+  getApplicationDraft: async (jobId: number) => {
+    const res = await axios.post(`${API_BASE}/applications/draft/${jobId}`);
+    return res.data;
+  },
   prepareApplication: async (jobId: number): Promise<ApplicationRecord> => {
     const res = await axios.post(`${API_BASE}/applications/prepare/${jobId}`);
     return res.data;

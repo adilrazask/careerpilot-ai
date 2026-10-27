@@ -70,6 +70,26 @@ def get_applications(status: Optional[str] = None, db: Session = Depends(get_db)
         ) for a in apps
     ]
 
+@router.post("/draft/{job_id}")
+def generate_adil_hr_draft(job_id: int, db: Session = Depends(get_db)):
+    """Generate structured personal application draft strictly conforming to Adil's facts, JD requirements, and rules."""
+    job = db.query(JobListing).filter_by(id=job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job listing not found.")
+
+    contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+    hr_name = contact.contact_name if contact else None
+
+    from app.services.adil_email_drafter import AdilEmailDrafter
+    draft_res = AdilEmailDrafter.draft(
+        job_title=job.title,
+        company_name=job.company_name,
+        jd_text=job.description or "",
+        hr_name=hr_name,
+        resume_attached=True
+    )
+    return draft_res
+
 @router.post("/prepare/{job_id}", response_model=ApplicationRecordResponse)
 def prepare_application(job_id: int, db: Session = Depends(get_db)):
     job = db.query(JobListing).filter_by(id=job_id).first()

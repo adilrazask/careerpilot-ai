@@ -144,8 +144,20 @@ class EmailOutreachService:
         application.current_status = "SUBMISSION_IN_PROGRESS"
         db.commit()
 
-        # Prepare Email Content
+        # Prepare Email Content using AdilEmailDrafter (Grounded strictly in Candidate Facts & JD Analysis)
+        from app.services.adil_email_drafter import AdilEmailDrafter
         policy = db.query(AutomationPolicy).filter_by(id=1).first()
+        contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+        hr_name = contact.contact_name if contact else None
+
+        draft_res = AdilEmailDrafter.draft(
+            job_title=job.title,
+            company_name=job.company_name,
+            jd_text=job.description or "",
+            hr_name=hr_name,
+            resume_attached=True
+        )
+
         candidate_name = settings.CAREER_FULL_NAME or "SK Adil Raja"
         candidate_phone = settings.CAREER_PHONE or "+91 9583029294"
         candidate_email = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
@@ -158,9 +170,9 @@ class EmailOutreachService:
                     name=candidate_name
                 )
             except Exception:
-                subject = f"Application: {job.title} — {candidate_name}"
+                subject = draft_res.get("subject") or f"Application for {job.title} – Adil | Operations, ERP"
         else:
-            subject = f"Application: {job.title} — {candidate_name}"
+            subject = draft_res.get("subject") or f"Application for {job.title} – Adil | Operations, ERP"
 
         if policy and policy.custom_application_body:
             try:
@@ -172,28 +184,9 @@ class EmailOutreachService:
                     email=candidate_email
                 )
             except Exception:
-                body_text = policy.custom_application_body
+                body_text = draft_res.get("body")
         else:
-            body_text = (
-                f"Dear Hiring Team at {job.company_name},\n\n"
-                f"I hope this email finds you well.\n\n"
-                f"I am writing to formally submit my application for the {job.title} position at {job.company_name}.\n\n"
-                f"With over 2.5 years of hands-on operations experience at Gupta Steels / Omnia Steels Pvt Ltd in Hyderabad, "
-                f"I have been directly responsible for:\n"
-                f"• Operational Systems & ERP: Managing daily ERP data integrity, CRM client follow-ups, and dispatch documentation.\n"
-                f"• Turnaround Time Reduction: Streamlining office procedures and cutting turnaround times on client requests by 90%.\n"
-                f"• Technical & Data Rigor: Leveraging an MSc in Computer Science for accurate Excel reporting, database integrity, and operational execution.\n\n"
-                f"I have attached my tailored resume for your review. I would welcome the opportunity to discuss how my skill set "
-                f"can support {job.company_name}'s operational goals.\n\n"
-                f"Would you be open to a brief introductory conversation this week?\n\n"
-                f"Thank you for your time and consideration.\n\n"
-                f"Warm regards,\n\n"
-                f"{candidate_name}\n"
-                f"Operations Executive | Hyderabad, India\n"
-                f"Phone: {candidate_phone}\n"
-                f"Email: {candidate_email}\n"
-                f"LinkedIn: linkedin.com/in/adil-raja-operations"
-            )
+            body_text = draft_res.get("body")
 
         sender = settings.EMAIL_FROM or settings.SMTP_USERNAME
         host = settings.SMTP_HOST
