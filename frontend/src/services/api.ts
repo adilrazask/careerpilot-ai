@@ -24,7 +24,7 @@ export const getBackendBaseUrl = (): string => {
 
   // 3. If in browser and not localhost, default to Render cloud backend
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {
-    return 'https://careerpilot-backend.onrender.com';
+    return 'https://careerpilot-backend-hps3.onrender.com';
   }
 
   // 4. Default to local backend
@@ -51,6 +51,9 @@ export const getApiBase = (): string => {
 const API_BASE = {
   toString: () => getApiBase()
 } as unknown as string;
+
+// Set 35s timeout to allow Render free tier container cold start without infinite spinning
+axios.defaults.timeout = 35000;
 
 // Attach token from localStorage to all outgoing requests and ensure URL routes to active backend
 axios.interceptors.request.use((config) => {

@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://careerpilot-backend.onrender.com/api/:path*"
+      "destination": "https://careerpilot-backend-hps3.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

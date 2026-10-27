@@ -55,10 +55,22 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-100">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400 font-medium">Authenticating CareerPilot AI...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-slate-100 p-4">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          <div className="w-9 h-9 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">Connecting to CareerPilot Cloud...</p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Contacting Render backend at <code className="text-blue-300">careerpilot-backend-hps3.onrender.com</code>. Render free instances take ~30–45s on cold start.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium transition-colors border border-slate-700"
+          >
+            Cancel / Reload
+          </button>
         </div>
       </div>
     );

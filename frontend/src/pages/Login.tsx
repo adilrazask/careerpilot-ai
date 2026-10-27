@@ -321,7 +321,7 @@ export const Login: React.FC = () => {
                     type="url"
                     value={backendUrl}
                     onChange={(e) => setBackendUrl(e.target.value)}
-                    placeholder="https://careerpilot-backend.onrender.com"
+                    placeholder="https://careerpilot-backend-hps3.onrender.com"
                     className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                   <button
