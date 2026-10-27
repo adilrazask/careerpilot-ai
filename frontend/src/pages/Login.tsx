@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Shield, Sparkles, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, Users, Bot } from 'lucide-react';
+import { getBackendBaseUrl, setCustomBackendUrl } from '../services/api';
+import { Shield, Sparkles, Mail, Lock, ArrowRight, CheckCircle2, AlertTriangle, Users, Bot, Server, RefreshCw } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login, loginWithGoogle, sessionTerminatedNotice, clearNotice, isLoading } = useAuth();
@@ -8,6 +9,42 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Backend connection testing & custom URL configuration
+  const [backendUrl, setBackendUrl] = useState<string>(() => getBackendBaseUrl());
+  const [showBackendSettings, setShowBackendSettings] = useState<boolean>(false);
+  const [isTestingBackend, setIsTestingBackend] = useState<boolean>(false);
+  const [backendStatus, setBackendStatus] = useState<{ online: boolean; message: string } | null>(null);
+
+  const testBackendConnection = async (targetUrl: string) => {
+    setIsTestingBackend(true);
+    setBackendStatus(null);
+    try {
+      const cleanUrl = targetUrl.trim().replace(/\/$/, '');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(`${cleanUrl}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        setBackendStatus({ online: true, message: 'Backend connected & healthy! (200 OK)' });
+      } else {
+        setBackendStatus({ online: false, message: `Server reached but responded with status ${res.status}.` });
+      }
+    } catch (err: any) {
+      setBackendStatus({
+        online: false,
+        message: 'Could not connect. If your Render service just deployed or was inactive, free instances take ~30-50s to wake up. Please wait 30 seconds and test again.'
+      });
+    } finally {
+      setIsTestingBackend(false);
+    }
+  };
+
+  const handleSaveBackendUrl = () => {
+    setCustomBackendUrl(backendUrl);
+    testBackendConnection(backendUrl);
+  };
 
   const handleStandardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +57,12 @@ export const Login: React.FC = () => {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      if (err.response?.status === 405 || !err.response || err.message?.includes('Network Error')) {
+        setShowBackendSettings(true);
+        setError(`Cannot reach Python backend API. Verify your Render service URL below or allow 30s to wake up.`);
+      } else {
+        setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -36,7 +78,12 @@ export const Login: React.FC = () => {
         avatar: '/profile_photo.jpg'
       });
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Google sign-in failed.');
+      if (err.response?.status === 405 || !err.response || err.message?.includes('Network Error')) {
+        setShowBackendSettings(true);
+        setError(`Cannot reach Python backend API. Verify your Render service URL below or allow 30s to wake up.`);
+      } else {
+        setError(err.response?.data?.detail || 'Google sign-in failed.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -216,6 +263,80 @@ export const Login: React.FC = () => {
                 <p className="text-[10px] text-slate-400 mt-0.5">Member (Restricted Features)</p>
               </button>
             </div>
+          </div>
+
+          {/* 4. Backend Cloud Connection Status & Settings */}
+          <div className="pt-3 border-t border-slate-700/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <Server className="w-3.5 h-3.5 text-blue-400" />
+                <span>Cloud Backend Server</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBackendSettings(!showBackendSettings)}
+                className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                {showBackendSettings ? 'Hide' : 'Configure URL'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-2 rounded-lg bg-slate-900/90 border border-slate-700/80 text-xs">
+              <span className="font-mono text-[11px] text-slate-300 truncate max-w-[210px]" title={backendUrl}>
+                {backendUrl}
+              </span>
+              <button
+                type="button"
+                disabled={isTestingBackend}
+                onClick={() => testBackendConnection(backendUrl)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-blue-300 font-medium transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isTestingBackend ? 'animate-spin' : ''}`} />
+                <span>{isTestingBackend ? 'Testing...' : 'Test'}</span>
+              </button>
+            </div>
+
+            {backendStatus && (
+              <div className={`p-2.5 rounded-lg text-xs flex items-start gap-2 ${
+                backendStatus.online
+                  ? 'bg-emerald-950/70 border border-emerald-800/80 text-emerald-200'
+                  : 'bg-amber-950/70 border border-amber-800/80 text-amber-200'
+              }`}>
+                {backendStatus.online ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                )}
+                <span className="text-[11px] leading-relaxed">{backendStatus.message}</span>
+              </div>
+            )}
+
+            {showBackendSettings && (
+              <div className="p-3 rounded-xl bg-slate-900 border border-blue-900/50 space-y-2.5 animate-fadeIn">
+                <label className="text-[11px] text-slate-300 font-medium block">
+                  Custom Render Backend URL:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={backendUrl}
+                    onChange={(e) => setBackendUrl(e.target.value)}
+                    placeholder="https://careerpilot-backend.onrender.com"
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveBackendUrl}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                  >
+                    Save
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  Copy your active URL from your Render dashboard (e.g. <code>https://careerpilot-backend.onrender.com</code>).
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

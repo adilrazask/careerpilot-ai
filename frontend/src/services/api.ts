@@ -7,14 +7,68 @@ import {
   User, UserSession, FeatureItem
 } from '../types';
 
-const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '') + '/api';
+export const getBackendBaseUrl = (): string => {
+  // 1. Check custom override in localStorage
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('careerpilot_backend_url');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/$/, '');
+    }
+  }
 
-// Attach token from localStorage to all outgoing requests
+  // 2. Check build-time env variable
+  const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/$/, '');
+  }
+
+  // 3. If in browser and not localhost, default to Render cloud backend
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {
+    return 'https://careerpilot-backend.onrender.com';
+  }
+
+  // 4. Default to local backend
+  return 'http://localhost:8000';
+};
+
+export const setCustomBackendUrl = (url: string) => {
+  if (typeof window === 'undefined') return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem('careerpilot_backend_url');
+  } else {
+    let clean = url.trim().replace(/\/$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    localStorage.setItem('careerpilot_backend_url', clean);
+  }
+};
+
+export const getApiBase = (): string => {
+  return `${getBackendBaseUrl()}/api`;
+};
+
+const API_BASE = {
+  toString: () => getApiBase()
+} as unknown as string;
+
+// Attach token from localStorage to all outgoing requests and ensure URL routes to active backend
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('careerpilot_auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Dynamic rewrite for requests to prevent 405 on static hosting like Vercel
+  if (config.url) {
+    const backend = getBackendBaseUrl();
+    if (config.url.startsWith('/api')) {
+      config.url = `${backend}${config.url}`;
+    } else if (typeof window !== 'undefined' && config.url.startsWith(window.location.origin + '/api')) {
+      config.url = config.url.replace(window.location.origin, backend);
+    }
+  }
+
   return config;
 });
 
