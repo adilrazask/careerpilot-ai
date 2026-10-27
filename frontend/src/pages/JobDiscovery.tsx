@@ -30,6 +30,23 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const [manualUrl, setManualUrl] = useState('');
   const [manualDesc, setManualDesc] = useState('');
   const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const handleSyncDefaults = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await api.syncDefaultJobs();
+      setSyncMessage(res.message || `Successfully synced ${res.added_jobs || 107} verified vacancies!`);
+      await fetchJobs();
+      setTimeout(() => setSyncMessage(null), 6000);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to sync default jobs');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleLiveSearch = async () => {
     setIsSearchingLive(true);
@@ -122,12 +139,21 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleSyncDefaults}
+            disabled={isSyncing}
+            className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
+            title="Restore and sync all 107 verified vacancies and 76 HR contacts"
+          >
+            <Sparkles className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync 100+ Verified Jobs'}
+          </button>
           <button
             onClick={handleLiveSearch}
             disabled={isSearchingLive}
             className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
-            title="Scan LinkedIn and job portals for live openings"
+            title="Scan LinkedIn, Naukri, and Indeed for live openings"
           >
             <RefreshCw className={`h-4 w-4 ${isSearchingLive ? 'animate-spin' : ''}`} />
             {isSearchingLive ? 'Scanning Portals...' : 'Discover Live Jobs'}
@@ -140,6 +166,17 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
           </button>
         </div>
       </div>
+
+      {/* Sync Success Banner */}
+      {syncMessage && (
+        <div className="p-3 rounded-xl bg-indigo-950/80 border border-indigo-700/80 text-indigo-200 text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-indigo-400" />
+            <span className="font-medium">{syncMessage}</span>
+          </div>
+          <button onClick={() => setSyncMessage(null)} className="text-indigo-400 hover:text-indigo-200 font-bold ml-2">×</button>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">

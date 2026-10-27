@@ -125,6 +125,10 @@ export const api = {
     const res = await axios.post(`${API_BASE}/jobs/search`, payload);
     return res.data;
   },
+  syncDefaultJobs: async () => {
+    const res = await axios.post(`${API_BASE}/jobs/sync-defaults`);
+    return res.data;
+  },
   createJob: async (job: Partial<JobListing>): Promise<JobListing> => {
     const res = await axios.post(`${API_BASE}/jobs/create`, job);
     return res.data;

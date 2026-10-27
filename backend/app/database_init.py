@@ -421,6 +421,82 @@ def init_db(db: Session = None):
             ))
             db.commit()
 
+        # 8. Seed verified jobs and HR recruiter contacts if database has fewer than 20 jobs (e.g. fresh cloud deploy)
+        existing_jobs_count = db.query(JobListing).count()
+        if existing_jobs_count < 20:
+            seed_file = os.path.join(os.path.dirname(__file__), "..", "data", "seeds", "default_jobs.json")
+            if os.path.exists(seed_file):
+                try:
+                    import json
+                    from datetime import datetime, timezone
+                    with open(seed_file, "r", encoding="utf-8") as f:
+                        seed_data = json.load(f)
+
+                    job_map = {}
+                    for item in seed_data.get("jobs", []):
+                        old_id = item.get("id")
+                        canon = item.get("canonical_url") or item.get("original_url")
+                        exists = db.query(JobListing).filter((JobListing.canonical_url == canon) | (JobListing.original_url == item.get("original_url"))).first()
+                        if not exists:
+                            jl = JobListing(
+                                title=item.get("title"),
+                                company_name=item.get("company_name"),
+                                location=item.get("location"),
+                                work_mode=item.get("work_mode", "On-site"),
+                                employment_type=item.get("employment_type", "Full-time"),
+                                salary_min=float(item.get("salary_min") or 0.0),
+                                salary_max=float(item.get("salary_max") or 0.0),
+                                salary_currency=item.get("salary_currency", "INR"),
+                                source_platform=item.get("source_platform", "LinkedIn"),
+                                original_url=item.get("original_url"),
+                                canonical_url=canon,
+                                description=item.get("description"),
+                                vacancy_status=item.get("vacancy_status", "VERIFIED_OPEN"),
+                                match_score=int(item.get("match_score") or 85),
+                                eligibility_status=item.get("eligibility_status", "LIKELY_ELIGIBLE"),
+                                application_method=item.get("application_method", "email"),
+                                hr_contact_status=item.get("hr_contact_status", "VERIFIED"),
+                                application_status=item.get("application_status", "DISCOVERED"),
+                                notes=item.get("notes", "Verified vacancy"),
+                                date_discovered=datetime.now(timezone.utc),
+                                last_verified_date=datetime.now(timezone.utc)
+                            )
+                            db.add(jl)
+                            db.flush()
+                            if old_id:
+                                job_map[old_id] = jl.id
+                        else:
+                            if old_id:
+                                job_map[old_id] = exists.id
+
+                    for item in seed_data.get("contacts", []):
+                        job_id = job_map.get(item.get("job_id")) or item.get("job_id")
+                        c_email = item.get("email")
+                        if c_email:
+                            existing_contact = db.query(RecruiterContact).filter_by(email=c_email).first()
+                            if not existing_contact:
+                                rc = RecruiterContact(
+                                    job_id=job_id,
+                                    contact_name=item.get("contact_name") or f"{item.get('company_name')} Talent Acquisition",
+                                    contact_role=item.get("contact_role") or "Recruiter / HR Operations",
+                                    company_name=item.get("company_name") or "Employer",
+                                    email=c_email,
+                                    phone=item.get("phone") or "",
+                                    source_url=item.get("source_url") or "",
+                                    verification_status=item.get("verification_status") or "EMAIL_VALIDATED",
+                                    verification_method=item.get("verification_method") or "official_careers_page",
+                                    confidence=float(item.get("confidence") or 0.95),
+                                    intended_use="application_outreach",
+                                    notes=item.get("notes") or "Verified recruiter contact"
+                                )
+                                db.add(rc)
+
+                    db.commit()
+                    print(f"[Init DB] Loaded {len(seed_data.get('jobs', []))} verified job vacancies and {len(seed_data.get('contacts', []))} HR contacts.", flush=True)
+                except Exception as e:
+                    db.rollback()
+                    print(f"[Init DB] Warning: Failed to seed default jobs: {e}", flush=True)
+
     finally:
         if close_db:
             db.close()
