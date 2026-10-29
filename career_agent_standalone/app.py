@@ -1,4 +1,4 @@
-import os, re, json, sqlite3, smtplib, ssl, textwrap
+import os, sys, re, json, sqlite3, smtplib, ssl, textwrap
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from pathlib import Path
@@ -7,13 +7,31 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
+# Top-level Vercel Serverless Function & WSGI compatibility exports
+def handler(*args, **kwargs):
+    if len(args) == 2 and callable(args[1]):
+        environ, start_response = args
+        start_response("200 OK", [("Content-type", "text/html; charset=utf-8")])
+        return [b"<!DOCTYPE html><html><head><title>CareerPilot Standalone Worker</title></head><body><h1>CareerPilot Autonomous Standalone Agent</h1><p>Worker runs on host/cloud.</p></body></html>"]
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "text/html"},
+        "body": "<!DOCTYPE html><html><head><title>CareerPilot Standalone Worker</title></head><body><h1>CareerPilot Autonomous Standalone Agent</h1><p>Worker runs on host/cloud.</p></body></html>"
+    }
+
+app = handler
+application = handler
+
 BASE = Path(__file__).resolve().parent
 DATA_DIR = BASE / "data"
 DATA_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "career_agent.sqlite3"
 load_dotenv(BASE / ".env")
 
-st.set_page_config(page_title="CareerPilot AI — Autonomous Job Search", page_icon="🧭", layout="wide")
+try:
+    st.set_page_config(page_title="CareerPilot AI — Autonomous Job Search", page_icon="🧭", layout="wide")
+except Exception:
+    pass
 
 DEFAULT_PROFILE = """Target roles: Operations Executive, Senior Operations Executive, Business Operations Coordinator, Operations Manager (only where experience fits), ERP/CRM Coordinator, Sales Coordinator, Procurement Executive, Supply Chain Executive, Logistics Coordinator, Admin/Office Coordinator, Customer Success Operations.
 Preferred location: Hyderabad, India; open to UAE/Dubai opportunities if explicitly selected.
