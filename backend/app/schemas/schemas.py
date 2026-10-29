@@ -223,6 +223,12 @@ class VerifyContactRequest(BaseModel):
     contact_id: int
 
 # --- Application Pipeline Schemas ---
+class ManualSendRequest(BaseModel):
+    job_id: int
+    recipient_email: Optional[str] = None
+    subject: Optional[str] = None
+    body_text: Optional[str] = None
+
 class ApplicationTransitionRequest(BaseModel):
     new_status: str
     reason: str

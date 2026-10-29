@@ -11,15 +11,37 @@ services:
         value: 3.11.9
       - key: RUN_WORKER_IN_APP
         value: "true"
+      - key: ENVIRONMENT
+        value: production
+      - key: EMAIL_PROVIDER
+        value: smtp
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
         value: "587"
+      - key: SMTP_USERNAME
+        value: adilrazask@gmail.com
+      - key: SMTP_PASSWORD
+        value: rkektianbnqytjkc
+      - key: EMAIL_FROM
+        value: adilrazask@gmail.com
+      - key: IMAP_HOST
+        value: imap.gmail.com
+      - key: IMAP_PORT
+        value: "993"
+      - key: IMAP_USERNAME
+        value: adilrazask@gmail.com
+      - key: IMAP_PASSWORD
+        value: rkektianbnqytjkc
       - key: CAREER_FULL_NAME
         value: "SK Adil Raja"
       - key: CAREER_PHONE
         value: "+91 9583029294"
       - key: CAREER_EMAIL
         value: "adilrazask@gmail.com"
-      - key: EMAIL_FROM
-        value: "adilrazask@gmail.com"
+      - key: CAREER_LOCATION
+        value: "Hyderabad, India"
+      - key: TAVILY_API_KEY
+        value: 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
+      - key: APOLLO_API_KEY
+        value: apol_live_test_key_xyz987

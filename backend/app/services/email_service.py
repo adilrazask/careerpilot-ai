@@ -116,9 +116,11 @@ class EmailOutreachService:
     def send_application_email(
         cls,
         application: ApplicationRecord,
-        resume_version: ResumeVersion,
+        resume_version: Optional[ResumeVersion],
         db: Session,
-        is_unattended: bool = False
+        is_unattended: bool = False,
+        custom_subject: Optional[str] = None,
+        custom_body: Optional[str] = None
     ) -> Dict[str, Any]:
         """Send application email with tailored attachments under strict policy and duplicate checks."""
         job = application.job
@@ -142,7 +144,7 @@ class EmailOutreachService:
             att_time = prior_attempt.attempted_at or now_utc
             if att_time.tzinfo is None:
                 att_time = att_time.replace(tzinfo=timezone.utc)
-            if (now_utc - att_time).total_seconds() < 120:
+            if is_unattended and (now_utc - att_time).total_seconds() < 120:
                 raise RuntimeError(f"Duplicate submission prevented: Application {application.id} is currently in progress.")
 
         # Step 1 Rule: SEED DATA refusal
@@ -225,7 +227,9 @@ class EmailOutreachService:
         candidate_phone = settings.CAREER_PHONE or "+91 9583029294"
         candidate_email = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
 
-        if policy and policy.custom_application_subject:
+        if custom_subject and custom_subject.strip():
+            subject = custom_subject.strip()
+        elif policy and policy.custom_application_subject:
             try:
                 subject = policy.custom_application_subject.format(
                     title=job.title,
@@ -237,7 +241,9 @@ class EmailOutreachService:
         else:
             subject = draft_res.get("subject") or f"Application for {job.title} – Adil | Operations, ERP"
 
-        if policy and policy.custom_application_body:
+        if custom_body and custom_body.strip():
+            body_text = custom_body.strip()
+        elif policy and policy.custom_application_body:
             try:
                 body_text = policy.custom_application_body.format(
                     title=job.title,

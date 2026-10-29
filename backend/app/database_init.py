@@ -345,14 +345,14 @@ def init_db(db: Session = None):
                 "category": "email",
                 "capabilities": ["Direct Job Application Sending", "Resume/Cover Letter Attachment", "Follow-up Delivery"],
                 "permissions": ["Send Outbound Mail"],
-                "is_configured": False
+                "is_configured": bool(settings.SMTP_USERNAME and settings.SMTP_PASSWORD)
             },
             {
                 "provider_name": "IMAP Inbound Mail",
                 "category": "email",
                 "capabilities": ["Recruiter Reply Polling", "Interview Invitation Detection", "Rejection Logging"],
                 "permissions": ["Read Inbox Headers & Bodies"],
-                "is_configured": False
+                "is_configured": bool(settings.IMAP_USERNAME and settings.IMAP_PASSWORD)
             },
             {
                 "provider_name": "Ollama Local AI",
@@ -394,18 +394,30 @@ def init_db(db: Session = None):
                     supported_capabilities=item["capabilities"],
                     permissions_granted=item["permissions"]
                 ))
+            else:
+                m.is_configured = item["is_configured"]
+                m.is_active = item["is_configured"]
         db.commit()
 
         # 6. Default System Health entries
         components = ["database", "scheduler", "worker", "email_outbound", "email_inbound", "ai_engine", "job_discovery", "voice_engine"]
+        smtp_healthy = bool(settings.SMTP_USERNAME and settings.SMTP_PASSWORD)
+        imap_healthy = bool(settings.IMAP_USERNAME and settings.IMAP_PASSWORD)
         for c in components:
             sh = db.query(SystemHealth).filter_by(component=c).first()
+            expected_status = "HEALTHY" if c in ["database", "scheduler", "voice_engine"] else (
+                "HEALTHY" if (c == "email_outbound" and smtp_healthy) else (
+                    "HEALTHY" if (c == "email_inbound" and imap_healthy) else "UNCONFIGURED"
+                )
+            )
             if not sh:
                 db.add(SystemHealth(
                     component=c,
-                    status="HEALTHY" if c in ["database", "scheduler", "voice_engine"] else "UNCONFIGURED",
+                    status=expected_status,
                     message="Initialized"
                 ))
+            else:
+                sh.status = expected_status
         db.commit()
 
         # 7. Default Voice Security Settings

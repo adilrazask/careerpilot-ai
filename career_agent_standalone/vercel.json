@@ -1,4 +1,3 @@
 {
-  "buildCommand": "mkdir -p public && echo '<!DOCTYPE html><html><head><title>CareerPilot Standalone Worker</title></head><body><h1>CareerPilot Autonomous Worker runs on host</h1></body></html>' > public/index.html",
   "outputDirectory": "public"
 }

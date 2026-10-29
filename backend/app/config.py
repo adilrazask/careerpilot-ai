@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import sys
 from pathlib import Path
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,57 +8,57 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "*"]
     
     # Database
-    DATABASE_URL: str = f"sqlite:///{BASE_DIR}/data/careerpilot.db"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/data/careerpilot.db")
     
     # Security
-    SECRET_KEY: str = "careerpilot-super-secure-secret-key-development-mode"
-    ADMIN_TOKEN: str = "cp_admin_audit_secret_token_9876"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "careerpilot-super-secure-secret-key-development-mode")
+    ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "cp_admin_audit_secret_token_9876")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # AI Providers
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "qwen2.5:7b"
-    OPENAI_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
-    ANTHROPIC_API_KEY: str = ""
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     
     # Web Search & Discovery
-    TAVILY_API_KEY: str = ""
-    SERPER_API_KEY: str = ""
-    APOLLO_API_KEY: str = ""
-    HUNTER_API_KEY: str = ""
-    ZEROBOUNCE_API_KEY: str = ""
+    TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "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")
+    SERPER_API_KEY: str = os.getenv("SERPER_API_KEY", "")
+    APOLLO_API_KEY: str = os.getenv("APOLLO_API_KEY", "apol_live_test_key_xyz987")
+    HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
+    ZEROBOUNCE_API_KEY: str = os.getenv("ZEROBOUNCE_API_KEY", "")
 
     # Email Dispatch Provider (smtp, dry_run, gmail_api)
-    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "smtp" if os.getenv("SMTP_USERNAME") else "dry_run")
-    GMAIL_API_TOKEN: str = ""
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "dry_run" if "pytest" in sys.modules else "smtp")
+    GMAIL_API_TOKEN: str = os.getenv("GMAIL_API_TOKEN", "")
     
     # Outbound Email (SMTP)
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""
-    SMTP_PASSWORD: str = ""
-    EMAIL_FROM: str = ""
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "adilrazask@gmail.com")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "rkektianbnqytjkc")
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "adilrazask@gmail.com")
     
     # Inbound Email (IMAP)
-    IMAP_HOST: str = "imap.gmail.com"
-    IMAP_PORT: int = 993
-    IMAP_USERNAME: str = ""
-    IMAP_PASSWORD: str = ""
+    IMAP_HOST: str = os.getenv("IMAP_HOST", "imap.gmail.com")
+    IMAP_PORT: int = int(os.getenv("IMAP_PORT", 993))
+    IMAP_USERNAME: str = os.getenv("IMAP_USERNAME", "adilrazask@gmail.com")
+    IMAP_PASSWORD: str = os.getenv("IMAP_PASSWORD", "rkektianbnqytjkc")
     INBOUND_POLL_INTERVAL_MINUTES: int = 15
     
     # Owner Defaults
-    CAREER_FULL_NAME: str = "Operations Professional"
-    CAREER_PHONE: str = "+91 9876543210"
-    CAREER_EMAIL: str = ""
-    CAREER_LOCATION: str = "Hyderabad, India"
-    CAREER_LINKEDIN: str = ""
+    CAREER_FULL_NAME: str = os.getenv("CAREER_FULL_NAME", "SK Adil Raja")
+    CAREER_PHONE: str = os.getenv("CAREER_PHONE", "+91 9583029294")
+    CAREER_EMAIL: str = os.getenv("CAREER_EMAIL", "adilrazask@gmail.com")
+    CAREER_LOCATION: str = os.getenv("CAREER_LOCATION", "Hyderabad, India")
+    CAREER_LINKEDIN: str = os.getenv("CAREER_LINKEDIN", "")
     
     # Policy Defaults
     AUTONOMOUS_ENABLED: bool = False

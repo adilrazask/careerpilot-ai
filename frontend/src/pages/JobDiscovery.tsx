@@ -4,7 +4,7 @@ import { JobListing } from '../types';
 import {
   Compass, Search, Filter, ExternalLink, CheckCircle,
   AlertCircle, Plus, Eye, RefreshCw, X, ShieldAlert, Sparkles, Mail,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Send, Check
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -38,22 +38,71 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  // Adil HR Draft Preview State
+  // Adil HR Draft Preview & Manual Send State
   const [draftData, setDraftData] = useState<any | null>(null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
+  const [currentDraftJob, setCurrentDraftJob] = useState<JobListing | null>(null);
+  const [draftRecipient, setDraftRecipient] = useState('');
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftBody, setDraftBody] = useState('');
+  const [isSendingManual, setIsSendingManual] = useState(false);
 
   const handlePreviewDraft = async (jobId: number) => {
+    const job = jobs.find(j => j.id === jobId) || null;
+    setCurrentDraftJob(job);
     setIsLoadingDraft(true);
     setShowDraftModal(true);
     try {
       const data = await api.getApplicationDraft(jobId);
       setDraftData(data);
+      const defaultRec = data.recipient || (job ? `priya.sharma@${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15)}.com` : '');
+      setDraftRecipient(defaultRec);
+      setDraftSubject(data.subject || `Application for ${job?.title || 'Role'} – Adil | Operations, ERP`);
+      setDraftBody(data.body || '');
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to generate application draft');
       setShowDraftModal(false);
     } finally {
       setIsLoadingDraft(false);
+    }
+  };
+
+  const handleSendManualEmail = async () => {
+    if (!currentDraftJob) return;
+    if (!draftRecipient.trim() || !draftRecipient.includes('@')) {
+      alert('Please enter a valid recipient HR email address.');
+      return;
+    }
+    if (!draftSubject.trim()) {
+      alert('Subject line cannot be empty.');
+      return;
+    }
+    if (!draftBody.trim()) {
+      alert('Email body cannot be empty.');
+      return;
+    }
+
+    const confirmSend = window.confirm(
+      `Send manual email now to ${draftRecipient}?\n\nJob: ${currentDraftJob.title} at ${currentDraftJob.company_name}\nSubject: ${draftSubject}\n\nYour authentic resume PDF (SK_Adil_Raja_Resume.pdf) will be automatically attached.`
+    );
+    if (!confirmSend) return;
+
+    setIsSendingManual(true);
+    try {
+      const res = await api.sendManualEmail({
+        job_id: currentDraftJob.id,
+        recipient_email: draftRecipient.trim(),
+        subject: draftSubject.trim(),
+        body_text: draftBody.trim()
+      });
+      alert(`✅ Email Successfully Dispatched!\n\nRecipient: ${res.recipient || draftRecipient}\nProvider: Google SMTP (adilrazask@gmail.com)\nAttached: SK_Adil_Raja_Resume.pdf\n\nApplication state updated to EMAIL_SENT.`);
+      setShowDraftModal(false);
+      await fetchJobs();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to send manual email.');
+    } finally {
+      setIsSendingManual(false);
     }
   };
 
@@ -365,9 +414,9 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                         <button
                           onClick={() => handlePreviewDraft(job.id)}
                           className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold text-xs transition inline-flex items-center gap-1 border border-blue-200 dark:border-blue-800"
-                          title="Generate Adil Personalised HR Outreach Draft"
+                          title="Draft personalised HR email and send manually"
                         >
-                          <Mail className="h-3 w-3" /> Draft
+                          <Mail className="h-3 w-3" /> Draft & Send
                         </button>
                         <button
                           onClick={() => setSelectedJob(job)}
@@ -533,7 +582,7 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                   onClick={() => handlePreviewDraft(selectedJob.id)}
                   className="px-3 py-2 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition flex items-center gap-1.5"
                 >
-                  <Mail className="h-3.5 w-3.5" /> Preview HR Draft
+                  <Mail className="h-3.5 w-3.5" /> Draft & Send Email
                 </button>
                 <button
                   onClick={async () => {
@@ -634,35 +683,74 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                   </div>
                 </div>
 
+                {/* Recruiter Email Input */}
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px] flex items-center justify-between">
+                    <span>Recipient Recruiter / HR Email *</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Editable if you have a direct HR contact</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <input
+                      type="email"
+                      required
+                      value={draftRecipient}
+                      onChange={e => setDraftRecipient(e.target.value)}
+                      placeholder="e.g. hr@company.com or recruiter@company.com"
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
                 {/* Email Subject */}
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Subject Line:</label>
-                  <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs text-slate-800 dark:text-slate-200">
-                    {draftData.subject}
-                  </div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px] flex items-center justify-between">
+                    <span>Subject Line (Editable) *</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Includes role and top keywords</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={draftSubject}
+                    onChange={e => setDraftSubject(e.target.value)}
+                    className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 font-medium text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 {/* Email Body */}
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Email Body (150-200 Words):</label>
-                  <pre className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-sans text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-                    {draftData.body}
-                  </pre>
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Email Body (150-200 Words - Editable) *</label>
+                    <span className="text-[10px] text-slate-400 font-normal">Candidate facts: Gupta Steels & MSc CS</span>
+                  </div>
+                  <textarea
+                    rows={9}
+                    required
+                    value={draftBody}
+                    onChange={e => setDraftBody(e.target.value)}
+                    className="w-full p-3 rounded-lg bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 font-sans text-xs text-slate-900 dark:text-white leading-relaxed resize-y focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
                 {/* Attachment Pill */}
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
-                  <span>📎 Attached Resume:</span>
-                  <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">SK_Adil_Raja_Resume.pdf (1.2 MB Authenticated PDF)</span>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">📎 Auto-Attached:</span>
+                    <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">SK_Adil_Raja_Resume.pdf (1.2 MB Authenticated PDF)</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                    <Check className="h-3 w-3" /> Ready for SMTP
+                  </span>
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-[11px] text-slate-500">Requires Owner Approval before dispatch</span>
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] text-slate-500 hidden sm:inline">Dispatch directly via Google SMTP</span>
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                     <button
+                      type="button"
                       onClick={() => {
-                        navigator.clipboard.writeText(`${draftData.subject}\n\n${draftData.body}`);
+                        navigator.clipboard.writeText(`${draftSubject}\n\n${draftBody}`);
                         alert('Copied email subject and body to clipboard!');
                       }}
                       className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
@@ -670,13 +758,23 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                       Copy Draft
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setShowDraftModal(false);
                         alert('Draft approved! You can send via One-Click Apply or Application Pipeline.');
                       }}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow transition"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-white transition"
                     >
-                      Approve Format
+                      Approve for Batch
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSendingManual}
+                      onClick={handleSendManualEmail}
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Send className={`h-3.5 w-3.5 ${isSendingManual ? 'animate-pulse' : ''}`} />
+                      <span>{isSendingManual ? 'Sending via Gmail...' : 'Send Manual Email Now'}</span>
                     </button>
                   </div>
                 </div>

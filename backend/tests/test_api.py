@@ -110,3 +110,24 @@ def test_audit_logs(client):
     assert res.status_code == 200
     logs = res.json()
     assert len(logs) > 0
+
+def test_send_manual_application_email(client):
+    res = client.get("/api/jobs")
+    assert res.status_code == 200
+    jobs = res.json()
+    assert len(jobs) > 0
+    target_job = next((j for j in jobs if "manager" not in j["title"].lower() and "director" not in j["title"].lower()), jobs[0])
+    job_id = target_job["id"]
+
+    import uuid
+    unique_recip = f"priya.sharma.{uuid.uuid4().hex[:6]}@manualtest.com"
+    send_res = client.post("/api/applications/send-manual", json={
+        "job_id": job_id,
+        "recipient_email": unique_recip,
+        "subject": "Application for Operations Executive – Adil | Operations, ERP",
+        "body_text": "Dear Hiring Team,\n\nI am applying for the Operations role. Best regards,\nAdil"
+    })
+    assert send_res.status_code == 200
+    data = send_res.json()
+    assert data["status"] == "SUCCESS"
+    assert unique_recip in data["message"]

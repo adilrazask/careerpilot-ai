@@ -1,4 +1,3 @@
 {
-  "buildCommand": "mkdir -p public && echo '<!DOCTYPE html><html><head><title>CareerPilot Backend</title></head><body><h1>CareerPilot Backend API is hosted on Render</h1><p>Active Endpoint: https://careerpilot-backend-hps3.onrender.com</p></body></html>' > public/index.html",
   "outputDirectory": "public"
 }

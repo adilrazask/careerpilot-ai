@@ -209,6 +209,10 @@ export const api = {
     const res = await axios.post(`${API_BASE}/applications/draft/${jobId}`);
     return res.data;
   },
+  sendManualEmail: async (payload: { job_id: number; recipient_email?: string; subject?: string; body_text?: string }) => {
+    const res = await axios.post(`${API_BASE}/applications/send-manual`, payload);
+    return res.data;
+  },
   prepareApplication: async (jobId: number): Promise<ApplicationRecord> => {
     const res = await axios.post(`${API_BASE}/applications/prepare/${jobId}`);
     return res.data;
