@@ -67,10 +67,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
         const force = window.confirm(`${res.message}\n\nWould you like to Force Dispatch now regardless of hours?`);
         if (force) {
           const forceRes = await api.dispatchBatch(10, true);
-          alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!`);
+          if (forceRes.dispatched_count > 0) {
+            alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!\nRemaining daily allowance: ${forceRes.remaining_daily_allowance}`);
+          } else {
+            alert(forceRes.message || 'No applications could be dispatched.');
+          }
         }
       } else if (res.status === 'DAILY_LIMIT_REACHED') {
         alert(res.message);
+      } else if (res.dispatched_count === 0) {
+        alert(res.message || 'No new unapplied vacancies found in the queue. Auto-discovery has initiated fresh portal scans for Hyderabad Operations roles.');
       } else {
         alert(`Successfully dispatched ${res.dispatched_count} application(s) with your exact resume PDF!\nRemaining daily allowance: ${res.remaining_daily_allowance}`);
       }

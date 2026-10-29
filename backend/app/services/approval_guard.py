@@ -22,13 +22,14 @@ MAX_SEND_GAP_SECONDS = 480 # 8 minutes
 def check_approval_and_rate_limits(
     application: ApplicationRecord,
     db: Session,
-    enforce_working_hours: Optional[bool] = None
+    enforce_working_hours: Optional[bool] = None,
+    enforce_send_gap: bool = True
 ) -> Tuple[bool, str]:
     """
     Step 5 Approval & Dispatch Rules:
     1. application.current_status must be 'APPROVED_BY_USER'
     2. Daily send cap (max 15 sends per calendar day in IST)
-    3. Minimum gap of 3 minutes between consecutive dispatches
+    3. Minimum gap of 3 minutes between consecutive dispatches (enforced in background automation)
     4. Allowed sending hours: 10:00 to 17:00 IST only
     """
     # 1. Approval status check
@@ -62,9 +63,8 @@ def check_approval_and_rate_limits(
     if daily_sent_count >= DAILY_SEND_CAP:
         return False, f"Daily send cap ({DAILY_SEND_CAP}) reached for today ({daily_sent_count} sent). Refusing further dispatches."
 
-    # 4. Minimum 3-8 minute gap
-    # Only enforce if not under test or explicitly testing rate limits
-    check_gap = not bool(os.environ.get("PYTEST_CURRENT_TEST")) or enforce_working_hours is True
+    # 4. Minimum 3-8 minute gap (enforced for background unattended cycles)
+    check_gap = enforce_send_gap and (not bool(os.environ.get("PYTEST_CURRENT_TEST")) or enforce_working_hours is True)
     if check_gap:
         last_sent = db.query(EmailMessage).filter(
             EmailMessage.direction == "outbound",

@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     HUNTER_API_KEY: str = ""
     ZEROBOUNCE_API_KEY: str = ""
 
-    # Email Dispatch Provider (dry_run, gmail_api)
-    EMAIL_PROVIDER: str = "dry_run"
+    # Email Dispatch Provider (smtp, dry_run, gmail_api)
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "smtp" if os.getenv("SMTP_USERNAME") else "dry_run")
     GMAIL_API_TOKEN: str = ""
     
     # Outbound Email (SMTP)

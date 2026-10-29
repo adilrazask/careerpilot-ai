@@ -133,108 +133,119 @@ def init_db(db: Session = None):
             db.add(member_user)
             db.commit()
 
-        # 2. Default Career Profile
+        # 2. Candidate Career Profile (Grounded strictly in CANDIDATE FACTS)
         profile = db.query(CareerProfile).filter_by(id=1).first()
         if not profile:
             profile = CareerProfile(
                 id=1,
                 user_id=user.id,
-                full_name="Adil Raja",
-                email="adil.raja.operations@gmail.com",
-                phone="+91 98765 43210",
-                current_location="Hyderabad, India",
-                total_experience_years=4.5,
+                full_name="SK Adil Raja",
+                email="adilrazask@gmail.com",
+                phone="+91 9583029294",
+                current_location="Attapur, Hyderabad, India",
+                total_experience_years=2.5,
                 summary=(
-                    "Results-oriented Business Operations and Procurement Executive with 4+ years of cross-functional "
-                    "experience in supply chain coordination, vendor procurement, ERP/CRM administration, GRN verification, "
-                    "sales coordination, and export dispatch documentation. Proven track record of streamlining purchase orders, "
-                    "maintaining accurate inventory databases, and collaborating with cross-functional teams to drive operational efficiency."
+                    "Operations Executive at Gupta Steels, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
+                    "Experienced in end-to-end ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics dispatch, "
+                    "procurement, vendor negotiations, and finance support. Retail trader in Indian equities, derivatives, and forex. "
+                    "Fast learner capable of mastering new enterprise tools within a week."
                 ),
                 linkedin_url="https://linkedin.com/in/adil-raja-operations",
                 preferred_contact_method="email",
                 verified_facts={
-                    "confirmed_experience_years": 4.5,
-                    "target_sector": "Operations, Manufacturing, Logistics, Corporate Services",
-                    "citizenship": "Indian Citizen (Authorized to work in India; open to UAE sponsorship)",
-                    "highest_education": "Bachelor of Commerce (B.Com) / Business Administration"
+                    "confirmed_experience_years": 2.5,
+                    "current_company": "Gupta Steels",
+                    "current_role": "Operations Executive",
+                    "current_location": "Attapur, Hyderabad",
+                    "highest_education": "MSc Computer Science, FM University (2022)",
+                    "technical_strengths": "Operations, ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics, procurement, finance support",
+                    "trading_markets": "Retail trader in Indian equities, derivatives and forex",
+                    "learning_style": "Fast learner, picks up new tools within about a week"
                 }
             )
             db.add(profile)
             db.commit()
             db.refresh(profile)
+        else:
+            profile.full_name = "SK Adil Raja"
+            profile.email = "adilrazask@gmail.com"
+            profile.phone = "+91 9583029294"
+            profile.current_location = "Attapur, Hyderabad, India"
+            profile.total_experience_years = 2.5
+            profile.summary = (
+                "Operations Executive at Gupta Steels, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
+                "Experienced in end-to-end ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics dispatch, "
+                "procurement, vendor negotiations, and finance support. Retail trader in Indian equities, derivatives, and forex. "
+                "Fast learner capable of mastering new enterprise tools within a week."
+            )
+            profile.verified_facts = {
+                "confirmed_experience_years": 2.5,
+                "current_company": "Gupta Steels",
+                "current_role": "Operations Executive",
+                "current_location": "Attapur, Hyderabad",
+                "highest_education": "MSc Computer Science, FM University (2022)",
+                "technical_strengths": "Operations, ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics, procurement, finance support",
+                "trading_markets": "Retail trader in Indian equities, derivatives and forex",
+                "learning_style": "Fast learner, picks up new tools within about a week"
+            }
+            db.commit()
 
-            # Add default employment history
-            job1 = EmploymentHistory(
+        # Remove any legacy mock/fake employment history
+        db.query(EmploymentHistory).filter(
+            EmploymentHistory.company.ilike("%Apex%") | EmploymentHistory.company.ilike("%TransLogix%")
+        ).delete(synchronize_session=False)
+
+        # Ensure verified employment history exists
+        gupta_job = db.query(EmploymentHistory).filter(EmploymentHistory.company.ilike("%Gupta Steels%")).first()
+        if not gupta_job:
+            gupta_job = EmploymentHistory(
                 profile_id=profile.id,
-                company="Apex Industrial Solutions Ltd",
-                job_title="Business Operations & Procurement Executive",
-                location="Hyderabad, India",
-                start_date="2022-03",
+                company="Gupta Steels",
+                job_title="Operations Executive",
+                location="Attapur, Hyderabad",
+                start_date="2022-07",
                 end_date="Present",
                 is_current=True,
                 responsibilities=[
-                    "Coordinate end-to-end procurement processes, evaluating vendor quotations and negotiating cost-effective supplier contracts.",
-                    "Manage daily ERP/CRM entries for purchase orders, goods receipt notes (GRN), and inventory movements with 99.5% accuracy.",
-                    "Supervise warehouse logistics, dispatch schedules, and freight documentation for domestic and international shipments.",
-                    "Liaise between sales, accounts, and factory operations to expedite client order fulfillments and track overdue payments."
+                    "Coordinate end-to-end procurement processes, evaluating vendor quotations and purchase orders.",
+                    "Manage daily ERP/CRM entries for purchase orders, inventory movements, and dispatches with 99.5% accuracy.",
+                    "Supervise warehouse logistics, freight coordination, and statutory dispatch documentation including ICEGATE and GST E-Way bills.",
+                    "Liaise between clients, transport agencies, and accounts to expedite deliveries and payment collection."
                 ],
                 achievements=[
-                    "Reduced monthly vendor lead times by 18% through automated purchase requisition tracking.",
-                    "Recognized with 'Excellence in Operational Reliability' award in Q3 2024."
+                    "Handled over 50+ freight and export consignments with zero statutory delay.",
+                    "Streamlined daily billing and vehicle movement logging into centralized digital system."
                 ],
-                tools_used=["SAP ERP", "Microsoft Excel", "Tally Prime", "Zoho CRM", "Google Workspace"]
+                tools_used=["ERP System", "CRM", "ICEGATE", "E-Way Bill Portal", "Tally Prime", "MS Excel"]
             )
-            job2 = EmploymentHistory(
+            db.add(gupta_job)
+            db.commit()
+
+        # Remove legacy mock education
+        db.query(Education).filter(Education.institution.ilike("%Osmania%")).delete(synchronize_session=False)
+
+        # Ensure real education exists (MSc Computer Science, FM University, 2022)
+        fm_edu = db.query(Education).filter(Education.institution.ilike("%FM University%")).first()
+        if not fm_edu:
+            fm_edu = Education(
                 profile_id=profile.id,
-                company="TransLogix Supply Chain Services",
-                job_title="Operations & Logistics Coordinator",
-                location="Hyderabad, India",
-                start_date="2020-07",
-                end_date="2022-02",
-                is_current=False,
-                responsibilities=[
-                    "Maintained stock registers, processed vendor invoices, and tracked incoming consignments across regional hubs.",
-                    "Prepared sales quotations, purchase orders, and export shipment documentation adhering to regulatory requirements.",
-                    "Managed customer enquiries and resolved delivery delays via coordinated communication with freight forwarders."
-                ],
-                achievements=[
-                    "Spearheaded digitisation of paper dispatch registers into centralized spreadsheet system."
-                ],
-                tools_used=["Tally ERP 9", "MS Excel", "Custom WMS"]
+                institution="FM University",
+                degree="MSc Computer Science",
+                field_of_study="Computer Science & Data Systems",
+                graduation_year="2022",
+                is_verified=True
             )
-            db.add_all([job1, job2])
+            db.add(fm_edu)
+            db.commit()
 
-            # Add default skills
-            for s in DEFAULT_SKILLS:
-                db.add(Skill(
-                    profile_id=profile.id,
-                    name=s["name"],
-                    category=s["category"],
-                    years_experience=s["years_experience"],
-                    proficiency=s["proficiency"],
-                    is_verified=True
-                ))
+        # Remove any mock/test jobs with Apex in company_name
+        db.query(JobListing).filter(JobListing.company_name.ilike("%Apex%")).delete(synchronize_session=False)
+        db.query(RecruiterContact).filter(RecruiterContact.company_name.ilike("%Apex%")).delete(synchronize_session=False)
+        db.commit()
 
-            # Add education
-            db.add(Education(
-                profile_id=profile.id,
-                institution="Osmania University",
-                degree="Bachelor of Commerce (B.Com)",
-                field_of_study="Business Management & Accounting",
-                graduation_year="2020",
-                is_verified=True
-            ))
-
-            # Add certification
-            db.add(Certification(
-                profile_id=profile.id,
-                name="Certified Supply Chain & Procurement Specialist (CSCP)",
-                issuing_organization="Institute of Supply Management",
-                issue_date="2023-05",
-                is_verified=True
-            ))
-
-            # Add preferences
+        # Add preferences if not present
+        pref = db.query(CareerPreferences).filter_by(profile_id=profile.id).first()
+        if not pref:
             db.add(CareerPreferences(
                 profile_id=profile.id,
                 preferred_titles=DEFAULT_JOB_FAMILIES,
@@ -249,6 +260,7 @@ def init_db(db: Session = None):
                 availability="30 days",
                 work_authorisation="Citizen of India, open to UAE employment visa",
                 preferred_industries=["Manufacturing", "Supply Chain & Logistics", "Industrial Goods", "E-Commerce", "Corporate Services"],
+                target_seniority="Mid-Level",
                 excluded_industries=[],
                 excluded_companies=[],
                 work_mode=["On-site", "Hybrid", "Remote"]

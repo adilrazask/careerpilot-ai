@@ -124,11 +124,26 @@ class EmailOutreachService:
         job = application.job
         contact_email = application.primary_recipient.strip()
 
-        # Idempotency check: verify no prior attempt in state 'SENT' or 'SENDING'
+        # Check if dry_run mode is active
+        provider_setting = os.environ.get("EMAIL_PROVIDER") or getattr(settings, "EMAIL_PROVIDER", "dry_run")
+        is_dry_run = (provider_setting == "dry_run")
+
+        # Idempotency check: verify no prior attempt in state 'SUCCESS' or 'SENDING'
         idempotency_key = f"app-{application.id}-job-{job.id}-{contact_email}"
         prior_attempt = db.query(ApplicationAttempt).filter_by(idempotency_key=idempotency_key).first()
-        if prior_attempt and prior_attempt.status in ["SUCCESS", "SENDING"]:
-            raise RuntimeError(f"Duplicate submission prevented: Application {application.id} already has attempt state '{prior_attempt.status}'.")
+        if prior_attempt and prior_attempt.status == "SUCCESS":
+            prior_prov = ((prior_attempt.evidence or {}).get("provider") or "").upper()
+            if not is_dry_run and prior_prov in ["MOCK", "DRY_RUN", "MOCK_SIMULATED"]:
+                pass  # Allow upgrading dry-run simulation to real live send
+            else:
+                raise RuntimeError(f"Duplicate submission prevented: Application {application.id} already has attempt state '{prior_attempt.status}'.")
+        elif prior_attempt and prior_attempt.status == "SENDING":
+            now_utc = datetime.now(timezone.utc)
+            att_time = prior_attempt.attempted_at or now_utc
+            if att_time.tzinfo is None:
+                att_time = att_time.replace(tzinfo=timezone.utc)
+            if (now_utc - att_time).total_seconds() < 120:
+                raise RuntimeError(f"Duplicate submission prevented: Application {application.id} is currently in progress.")
 
         # Step 1 Rule: SEED DATA refusal
         if getattr(job, "is_seed", False):
@@ -144,7 +159,9 @@ class EmailOutreachService:
 
         # Step 5 Rule: APPROVAL STATUS & RATE LIMITS
         from app.services.approval_guard import check_approval_and_rate_limits
-        is_approved, appr_reason = check_approval_and_rate_limits(application, db)
+        is_approved, appr_reason = check_approval_and_rate_limits(
+            application, db, enforce_send_gap=is_unattended
+        )
         if not is_approved:
             raise ValueError(f"Application refused: {appr_reason}")
 
@@ -159,16 +176,31 @@ class EmailOutreachService:
             raise ValueError(f"Application refused: No verified RecruiterContact record exists for '{contact_email}'. Real verifier (Hunter/ZeroBounce) required.")
 
         # Create or update attempt as SENDING (reserve state)
-        attempt = ApplicationAttempt(
-            application_id=application.id,
-            submission_method="email",
-            recipient_or_portal=contact_email,
-            idempotency_key=idempotency_key,
-            status="SENDING",
-            attempt_number=(len(application.attempts) + 1),
-            attempted_at=datetime.now(timezone.utc)
-        )
-        db.add(attempt)
+        if prior_attempt and prior_attempt.status == "SENDING":
+            attempt = prior_attempt
+            attempt.attempted_at = datetime.now(timezone.utc)
+        elif prior_attempt and prior_attempt.status == "SUCCESS" and not is_dry_run:
+            attempt = ApplicationAttempt(
+                application_id=application.id,
+                submission_method="email",
+                recipient_or_portal=contact_email,
+                idempotency_key=f"app-{application.id}-job-{job.id}-{contact_email}-live",
+                status="SENDING",
+                attempt_number=(len(application.attempts) + 1),
+                attempted_at=datetime.now(timezone.utc)
+            )
+            db.add(attempt)
+        else:
+            attempt = ApplicationAttempt(
+                application_id=application.id,
+                submission_method="email",
+                recipient_or_portal=contact_email,
+                idempotency_key=idempotency_key,
+                status="SENDING",
+                attempt_number=(len(application.attempts) + 1),
+                attempted_at=datetime.now(timezone.utc)
+            )
+            db.add(attempt)
         application.current_status = "SUBMISSION_IN_PROGRESS"
         db.commit()
 
