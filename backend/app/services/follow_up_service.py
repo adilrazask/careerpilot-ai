@@ -8,26 +8,39 @@ from app.models import ApplicationRecord, FollowUpTask, JobListing, AutomationPo
 from app.services.email_service import EmailOutreachService
 from app.services.audit import record_audit_log
 
+def add_working_days(start_date: datetime, num_days: int) -> datetime:
+    """Adds a specific number of working days (Monday-Friday) to start_date."""
+    current = start_date
+    added = 0
+    while added < num_days:
+        current += timedelta(days=1)
+        if current.weekday() < 5:  # Mon=0, Fri=4
+            added += 1
+    return current
+
 class FollowUpService:
-    """Configurable automated follow-up scheduling (e.g. 15-day cadence), reply detection guards, and polite outreach delivery."""
+    """Configurable automated follow-up scheduling (max 2 cycles, 5-7 working days), reply detection guards, and thread delivery."""
 
     @classmethod
     def schedule_follow_up_if_eligible(cls, application: ApplicationRecord, db: Session) -> Optional[FollowUpTask]:
-        """Schedules the next follow-up task (e.g. every 15 days) if permitted by user policy."""
+        """Schedules the next follow-up task (Max 2 cycles, 5-7 working days apart) if permitted by user policy."""
         policy = db.query(AutomationPolicy).filter_by(id=1).first()
         if not policy or not policy.enable_auto_follow_ups:
             return None
 
-        max_cycles = getattr(policy, "max_follow_up_cycles", 3) or settings.MAX_FOLLOW_UPS or 3
-        delay_days = getattr(policy, "follow_up_interval_days", 15) or settings.FOLLOW_UP_INTERVAL_DAYS or 15
+        # Step 7 Rule: Max 2 follow-ups, 5-7 working days apart
+        max_cycles = 2
 
         # Check existing follow-up tasks
         existing_tasks = db.query(FollowUpTask).filter_by(application_id=application.id).count()
         if existing_tasks >= max_cycles:
-            return None # Maximum allowed cycles reached
+            return None # Maximum allowed 2 cycles reached
 
         next_sequence = existing_tasks + 1
-        due_date = datetime.now(timezone.utc) + timedelta(days=delay_days)
+        now_ts = datetime.now(timezone.utc)
+        # Follow-up 1: 5 working days; Follow-up 2: 7 working days
+        working_days_delay = 5 if next_sequence == 1 else 7
+        due_date = add_working_days(now_ts, working_days_delay)
 
         job = application.job
         company = job.company_name if job else "Hiring Team"
@@ -123,7 +136,7 @@ class FollowUpService:
                 "application_id": application.id,
                 "sequence": next_sequence,
                 "due_date": due_date.isoformat(),
-                "cadence_days": delay_days
+                "cadence_days": working_days_delay
             }
         )
         return task
@@ -153,6 +166,62 @@ class FollowUpService:
                 task.status = "CANCELLED_BY_REPLY"
                 task.notes = "Cancelled: Recruiter has already responded or interview invitation was received."
                 db.commit()
+                continue
+
+            # Step 1 Rule: FAIL CLOSED
+            # If thread_id is missing OR the Gmail check raises any error, do NOT send.
+            # Set task.status = "BLOCKED_UNVERIFIED" and log the reason.
+            if not app.thread_id:
+                task.status = "BLOCKED_UNVERIFIED"
+                task.notes = "Blocked: Missing thread_id on application record. Cannot safely verify recruiter thread without thread_id."
+                record_audit_log(
+                    db=db,
+                    action="follow_up_blocked_unverified",
+                    actor="follow_up_service",
+                    entity_type="follow_up_task",
+                    entity_id=str(task.id),
+                    details={"reason": "Missing thread_id on application record", "application_id": app.id}
+                )
+                db.commit()
+                continue
+
+            try:
+                from app.services.gmail_service import GmailService
+                thread_msgs = GmailService.check_thread_messages(app.thread_id)
+                candidate_email = (settings.CAREER_EMAIL or settings.EMAIL_FROM or "").lower()
+                for m in thread_msgs:
+                    headers = {h.get("name", "").lower(): h.get("value", "") for h in m.get("payload", {}).get("headers", [])}
+                    from_hdr = headers.get("from", "").lower()
+                    is_auto = any(h in headers for h in ["auto-submitted", "x-autoreply", "x-failed-recipients"])
+                    # If message came from someone other than candidate or is auto-reply/bounce
+                    if (from_hdr and candidate_email and candidate_email not in from_hdr) or is_auto:
+                        task.status = "CANCELLED_BY_REPLY"
+                        task.notes = f"Cancelled: Recruiter reply, bounce, or auto-reply detected in Gmail thread '{app.thread_id}'."
+                        record_audit_log(
+                            db=db,
+                            action="follow_up_cancelled_by_reply",
+                            actor="follow_up_service",
+                            entity_type="follow_up_task",
+                            entity_id=str(task.id),
+                            details={"reason": "Recruiter reply or bounce detected", "thread_id": app.thread_id}
+                        )
+                        db.commit()
+                        break
+            except Exception as e:
+                task.status = "BLOCKED_UNVERIFIED"
+                task.notes = f"Blocked: Gmail thread check failed ({str(e)}). Refusing to send unverified follow-up."
+                record_audit_log(
+                    db=db,
+                    action="follow_up_blocked_unverified",
+                    actor="follow_up_service",
+                    entity_type="follow_up_task",
+                    entity_id=str(task.id),
+                    details={"reason": f"Gmail check error: {str(e)}", "thread_id": app.thread_id}
+                )
+                db.commit()
+                continue
+
+            if task.status in ["CANCELLED_BY_REPLY", "BLOCKED_UNVERIFIED"]:
                 continue
 
             # Guard 2: Vacancy is closed, expired, or application was terminated

@@ -45,10 +45,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Environment Secrets
+# Environment Secrets & OAuth Tokens
 .env
 *.env
 !.env.example
+token.json
+credentials.json
+*token*.json
+client_secret*.json
+*.pem
+*.key
 
 # Local SQLite databases & runtime data
 backend/data/*.db*

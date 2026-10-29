@@ -457,6 +457,7 @@ def init_db(db: Session = None):
                                 application_method=item.get("application_method", "email"),
                                 hr_contact_status=item.get("hr_contact_status", "VERIFIED"),
                                 application_status=item.get("application_status", "DISCOVERED"),
+                                is_seed=True,
                                 notes=item.get("notes", "Verified vacancy"),
                                 date_discovered=datetime.now(timezone.utc),
                                 last_verified_date=datetime.now(timezone.utc)
@@ -487,6 +488,7 @@ def init_db(db: Session = None):
                                     verification_method=item.get("verification_method") or "official_careers_page",
                                     confidence=float(item.get("confidence") or 0.95),
                                     intended_use="application_outreach",
+                                    is_seed=True,
                                     notes=item.get("notes") or "Verified recruiter contact"
                                 )
                                 db.add(rc)

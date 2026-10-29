@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str = "careerpilot-super-secure-secret-key-development-mode"
+    ADMIN_TOKEN: str = "cp_admin_audit_secret_token_9876"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # AI Providers
@@ -30,6 +31,12 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: str = ""
     SERPER_API_KEY: str = ""
     APOLLO_API_KEY: str = ""
+    HUNTER_API_KEY: str = ""
+    ZEROBOUNCE_API_KEY: str = ""
+
+    # Email Dispatch Provider (dry_run, gmail_api)
+    EMAIL_PROVIDER: str = "dry_run"
+    GMAIL_API_TOKEN: str = ""
     
     # Outbound Email (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"

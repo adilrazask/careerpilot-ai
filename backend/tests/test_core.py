@@ -270,17 +270,31 @@ def test_application_idempotency(test_db):
         company_name="Apex Global",
         original_url="https://example.com/ops10",
         description="Operations and coordination role.",
+        location="Hyderabad, India",
+        match_score=85,
         vacancy_status="VERIFIED_OPEN"
     )
     test_db.add(job)
     test_db.commit()
 
+    contact = RecruiterContact(
+        job_id=job.id,
+        company_name="Apex Global",
+        contact_name="Priya Sharma",
+        email="priya.sharma@apex-global-valid.com",
+        source_url="https://apex-global-valid.com/team",
+        verification_method="hunter_verified",
+        verification_status="SOURCE_VERIFIED"
+    )
+    test_db.add(contact)
+    test_db.commit()
+
     app = ApplicationRecord(
         id=1,
         job_id=job.id,
-        current_status="APPLICATION_READY",
+        current_status="APPROVED_BY_USER",
         submission_method="email",
-        primary_recipient="hr@apex-global-valid.com"
+        primary_recipient="priya.sharma@apex-global-valid.com"
     )
     test_db.add(app)
     rv = ResumeVersion(id=1, profile_id=1, job_id=job.id, version_name="v1", full_text="Resume text")
@@ -290,7 +304,7 @@ def test_application_idempotency(test_db):
     # First send succeeds in mock mode
     res = EmailOutreachService.send_application_email(app, rv, test_db)
     assert res["status"] == "SUCCESS"
-    assert app.current_status == "EMAIL_SENT"
+    assert app.current_status in ["EMAIL_SENT", "MOCK_SENT"]
 
     # Attempting second send with same idempotency key must raise error
     with pytest.raises(RuntimeError) as exc_info:

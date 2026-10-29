@@ -278,6 +278,10 @@ class JobListing(Base):
     application_method = Column(String(50), default="email") # email, portal, api
     hr_contact_status = Column(String(50), default="UNVERIFIED")
     application_status = Column(String(50), default="DISCOVERED", index=True) # Full 21-state ATS status
+    is_seed = Column(Boolean, default=False, index=True)
+    is_test = Column(Boolean, default=False, index=True)
+    is_test = Column(Boolean, default=False, index=True)
+    last_verified_at = Column(DateTime(timezone=True), nullable=True, default=utcnow)
     notes = Column(Text, default="")
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
@@ -338,6 +342,8 @@ class RecruiterContact(Base):
     last_verification_date = Column(DateTime(timezone=True), nullable=True)
     confidence = Column(Float, default=0.0) # 0.0 to 1.0
     intended_use = Column(String(100), default="application_outreach")
+    is_seed = Column(Boolean, default=False, index=True)
+    is_test = Column(Boolean, default=False, index=True)
     notes = Column(Text, default="")
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -367,6 +373,7 @@ class ApplicationRecord(Base):
     submission_method = Column(String(50), default="email") # email, portal, api
     primary_recipient = Column(String(255), default="")
     external_confirmation_id = Column(String(255), default="")
+    thread_id = Column(String(255), index=True, default="")
     delivery_evidence = Column(JSON, default=dict)
     acknowledgement_received = Column(Boolean, default=False)
     interview_invited = Column(Boolean, default=False)
@@ -426,6 +433,7 @@ class EmailMessage(Base):
     body_text = Column(Text, nullable=False)
     body_html = Column(Text, default="")
     message_id_header = Column(String(255), index=True, default="")
+    thread_id = Column(String(255), index=True, default="")
     in_reply_to = Column(String(255), default="")
     classification = Column(String(50), default="APPLICATION") # APPLICATION, ACKNOWLEDGEMENT, INTERVIEW_INVITATION, RECRUITER_QUESTION, DOCUMENT_REQUEST, REJECTION, OFFER, FOLLOWUP_RESPONSE, UNRELATED, SUSPICIOUS
     status = Column(String(50), default="SENT") # DRAFT, QUEUED, SENT, DELIVERED, BOUNCED, FAILED

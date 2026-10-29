@@ -1,11 +1,13 @@
 import os
 import threading
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.config import settings
 from app.database_init import init_db
 from app.routers import (
@@ -25,8 +27,8 @@ async def lifespan(app: FastAPI):
     os.makedirs("./data/resumes", exist_ok=True)
     os.makedirs("./data/uploads", exist_ok=True)
 
-    # Automatically run autonomous worker inside the web service when enabled (100% Free on Render/Cloud)
-    if os.environ.get("RUN_WORKER_IN_APP", "false").lower() in ("true", "1", "yes"):
+    # Automatically run autonomous worker inside the web service (100% Free on Render/Cloud)
+    if os.environ.get("RUN_WORKER_IN_APP", "true").lower() in ("true", "1", "yes"):
         try:
             from worker import worker_loop
             _worker_stop_event.clear()
@@ -93,6 +95,14 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "HEALTHY"}
+
+@app.get("/health/audit")
+def health_audit(
+    db: Session = Depends(get_db),
+    _authorized: bool = Depends(audit.verify_admin_token)
+):
+    from app.routers.audit import compute_health_audit_counts
+    return compute_health_audit_counts(db)
 
 @app.get("/profile_photo.jpg")
 def get_profile_photo():

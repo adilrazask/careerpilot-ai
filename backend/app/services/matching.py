@@ -57,6 +57,23 @@ class MatchingEngine:
                 "recommended_action": "REJECT"
             }
 
+        # Step 4: Disqualify based on Job Filters (Seniority, Blocked keywords, Whitelist)
+        from app.services.job_filters import validate_job_filters
+        is_filter_ok, filter_reason = validate_job_filters(job, min_fit_score=0)
+        if not is_filter_ok:
+            return {
+                "match_score": 0,
+                "eligibility_status": "NOT_ELIGIBLE",
+                "matching_requirements": [],
+                "missing_requirements": [filter_reason],
+                "uncertain_requirements": [],
+                "location_match": False,
+                "salary_match": "UNKNOWN",
+                "score_breakdown": {"job_filter_disqualified": True},
+                "explanation": f"Disqualified by Job Filters: {filter_reason}",
+                "recommended_action": "REJECT"
+            }
+
         # 3. Factor A: Title / Role Family Alignment (Max 25 pts)
         title_tokens = tokenize(job.title)
         role_keywords = {

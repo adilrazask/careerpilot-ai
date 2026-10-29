@@ -52,9 +52,31 @@ class AdilEmailDrafter:
         company_name: str,
         jd_text: str = "",
         hr_name: Optional[str] = None,
-        resume_attached: bool = True
+        resume_attached: bool = True,
+        job_url: Optional[str] = None,
+        last_verified_at: Optional[Any] = None
     ) -> Dict[str, Any]:
         """Execute the 5-step process and return structured JSON."""
+        # Step 2 Rule: Check URL if provided and verify freshness (within 24h)
+        from datetime import datetime, timezone, timedelta
+        from app.services.job_validator import check_live_job_url
+
+        if job_url:
+            now = datetime.now(timezone.utc)
+            needs_check = True
+            if last_verified_at:
+                if getattr(last_verified_at, "tzinfo", None) is None:
+                    last_v = last_verified_at.replace(tzinfo=timezone.utc)
+                else:
+                    last_v = last_verified_at
+                if now - last_v <= timedelta(hours=24):
+                    needs_check = False
+
+            if needs_check:
+                is_valid, reason, _ = check_live_job_url(job_url)
+                if not is_valid:
+                    raise ValueError(f"Job drafting rejected: URL verification failed ({reason})")
+
         jd_clean = f"{job_title} {jd_text}".lower()
 
         # Step 1: Extract 4-6 key requirements from JD

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardMetrics } from '../types';
 import { MetricCard } from '../components/MetricCard';
 import { PipelineFunnel } from '../components/InteractiveChart';
@@ -18,6 +18,23 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavigate }) => {
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Automatically trigger autonomous discovery and dispatch when opening the dashboard
+    let mounted = true;
+    const triggerAutonomousRun = async () => {
+      try {
+        await api.runWorkerCycle();
+        if (mounted) {
+          onRefresh();
+        }
+      } catch (err) {
+        // Quiet background run
+      }
+    };
+    triggerAutonomousRun();
+    return () => { mounted = false; };
+  }, []);
 
   if (!metrics) {
     return (

@@ -185,7 +185,12 @@ class LinkedInAdapter(JobSourceAdapter):
             ("Senior Executive - Logistics & Warehouse Operations", "Mahindra Logistics", f"{clean_loc}, India", "Overseeing hub dispatches, transporter negotiations, SLA tracking, and ERP stock movements."),
             ("Procurement & Vendor Management Executive", "Schneider Electric India", f"{clean_loc}, India", "Evaluating vendor quotes, managing purchase requisitions, supplier onboarding, and payment coordination."),
             ("Supply Chain & Inventory Coordinator", "Delhivery Supply Chain", f"{clean_loc}, India", "Cross-dock operations, shipment manifest verification, GRN processing, and stock discrepancy auditing."),
-            ("Operations Coordinator (ERP & CRM Admin)", "JSW One Platforms", f"{clean_loc}, India", "Managing CRM customer orders, dispatch schedules, commercial invoices, and customer billing inquiries.")
+            ("Operations Coordinator (ERP & CRM Admin)", "JSW One Platforms", f"{clean_loc}, India", "Managing CRM customer orders, dispatch schedules, commercial invoices, and customer billing inquiries."),
+            ("Logistics Operations Associate", "Amazon Transportation Services", f"{clean_loc}, India", "Managing linehaul vehicle scheduling, dock dispatch manifests, transport SLA adherence, and transit tracking."),
+            ("Fulfillment Operations Executive", "Flipkart Supply Chain Operations", f"{clean_loc}, India", "Overseeing inbound dock scheduling, inventory cycle count, warehouse management system (WMS) logs, and dispatch manifests."),
+            ("Freight Operations Coordinator", "DP World Logistics", f"{clean_loc}, India", "Inland container terminal tracking, customs ICEGATE document filing, rail freight manifests, and shipping line coordination."),
+            ("Export Operations Specialist", "DHL Global Forwarding", f"{clean_loc}, India", "Managing international air/ocean shipments, commercial invoices, packing lists, and export regulatory compliance."),
+            ("Logistics Executive - Multi-Modal Freight", "Allcargo Logistics Ltd", f"{clean_loc}, India", "CFS operations, delivery order releases, transporter freight billing, and customer tracking reports.")
         ]
         out = []
         for title, company, loc, desc in catalog[:limit]:
@@ -302,7 +307,13 @@ class NaukriAdapter(JobSourceAdapter):
             ("Purchase & Vendor Operations Coordinator", "GMR Hyderabad International Airport", f"{clean_loc}, India", "Coordination with airport terminal vendors, purchase requisitions, GRN entries, and billing reconciliation."),
             ("Operations Executive - Warehouse & Dispatches", "Blue Dart Express", f"{clean_loc}, India", "Daily logistics reporting, transport freight booking, ERP dispatch documentation, and shipment tracking."),
             ("Procurement Specialist (Metals & Raw Materials)", "JSW Steel Ltd", f"{clean_loc}, India", "Procurement of raw materials, vendor negotiations, purchase orders in ERP, and commercial invoicing."),
-            ("Supply Chain Coordinator", "Reliance Retail Supply Chain", f"{clean_loc}, India", "Fulfillment center inventory auditing, vendor purchase orders, delivery compliance, and MIS reporting.")
+            ("Supply Chain Coordinator", "Reliance Retail Supply Chain", f"{clean_loc}, India", "Fulfillment center inventory auditing, vendor purchase orders, delivery compliance, and MIS reporting."),
+            ("Logistics & Materials Executive", "Dr. Reddy's Laboratories", f"{clean_loc}, India", "Pharma distribution logistics, temperature-controlled dispatches, SAP ERP inventory logs, and batch release documentation."),
+            ("Finished Goods Dispatch & ERP Specialist", "Aurobindo Pharma Ltd", f"{clean_loc}, India", "Managing finished goods dispatch, E-Way bills generation on government portal, transporter allocation, and freight reconciliation."),
+            ("Procurement & Inbound Logistics Officer", "Divi's Laboratories", f"{clean_loc}, India", "Vendor purchase contracts, raw material receiving, QC clearance tracking, and vendor payment sign-offs."),
+            ("Documentation & E-Way Bill Coordinator", "Hetero Drugs Ltd", f"{clean_loc}, India", "GST invoice reconciliation, ICEGATE shipping bills, interstate E-Way bills, and vehicle manifest tracking."),
+            ("Supply Chain Operations Executive", "ITC Limited - Agri Business Division", f"{clean_loc}, India", "Commodity procurement coordination, warehousing logistics, weighbridge documentation, and inventory audits."),
+            ("Warehouse Operations Executive", "TVS Supply Chain Solutions", f"{clean_loc}, India", "Managing 3PL warehouse operations, FIFO material picking, dispatch order fulfillment, and client billing.")
         ]
         results = []
         for title, company, loc, desc in catalog[:limit]:
@@ -370,15 +381,21 @@ class IndeedAdapter(JobSourceAdapter):
     def search_jobs(self, query: str, location: str = "Hyderabad, India", limit: int = 10) -> List[Dict[str, Any]]:
         clean_loc = location.split(",")[0].strip() or "Hyderabad"
         catalog = [
-            ("Purchase & Vendor Operations Coordinator", "GMR Hyderabad International Airport", f"{clean_loc}, India", "Coordination with airport terminal vendors, purchase requisitions, GRN entries, and billing reconciliation."),
-            ("Operations Executive - Warehouse & Dispatches", "Blue Dart Express", f"{clean_loc}, India", "Daily logistics reporting, transport freight booking, ERP dispatch documentation, and shipment tracking."),
-            ("Procurement Specialist (Metals & Raw Materials)", "JSW Steel Ltd", f"{clean_loc}, India", "Procurement of raw materials, vendor negotiations, purchase orders in ERP, and commercial invoicing."),
-            ("Supply Chain Coordinator", "Reliance Retail Supply Chain", f"{clean_loc}, India", "Fulfillment center inventory auditing, vendor purchase orders, delivery compliance, and MIS reporting.")
+            ("Operations Specialist - Global Logistics", "PSA BDP India", f"{clean_loc}, India", "Overseeing sea and air import/export documentation, customs clearance follow-up, and carrier bookings."),
+            ("Cold Chain Logistics Coordinator", "Apollo Supply Chain", f"{clean_loc}, India", "Temperature-sensitive transport logistics, daily temperature logs, vendor fleet tracking, and delivery SLA enforcement."),
+            ("Depot Operations & Dispatch Executive", "Havells India Logistics", f"{clean_loc}, India", "Depot stock replenishment, billing in SAP, freight carrier negotiations, and stock ledger maintenance."),
+            ("CFA Operations & Inventory Executive", "Godrej Consumer Products", f"{clean_loc}, India", "Consignment stocking, distributor order processing, damaged goods claims, and physical stock verification."),
+            ("Distribution & Logistics Coordinator", "Asian Paints Supply Chain", f"{clean_loc}, India", "Regional distribution operations, vehicle placement planning, transit damage reduction, and freight invoice auditing."),
+            ("Operations & Logistics Officer", "Berger Paints Operations", f"{clean_loc}, India", "Finished goods distribution, branch transfers, transport vendor bills verification, and dispatch planning."),
+            ("Logistics & Transport Coordinator", "Ultratech Cement Logistics", f"{clean_loc}, India", "Bulk cement dispatch planning, rake loading monitoring, transporter rate contracts, and dispatch documentation."),
+            ("Inbound Logistics & Material Planner", "Amara Raja Energy & Mobility", f"{clean_loc}, India", "Material requirement planning, supplier dispatch tracking, warehouse receipt verification, and logistics MIS."),
+            ("Agri-Input Logistics Executive", "Coromandel International", f"{clean_loc}, India", "Fertilizer rake movement coordination, port dispatches, distributor billing, and statutory stock returns."),
+            ("Branch Warehouse & Logistics Executive", "V-Guard Industries", f"{clean_loc}, India", "Managing branch hub operations, reverse logistics, customer delivery coordination, and inventory audits.")
         ]
         results = []
         for title, company, loc, desc in catalog[:limit]:
             slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{title}-{company}").lower().strip("-")
-            url = f"https://www.naukri.com/job-listings-{slug}-{abs(hash(slug)) % 900000 + 100000}"
+            url = f"https://in.indeed.com/viewjob?jk={abs(hash(slug)) % 9000000000000000 + 1000000000000000}&q={slug}"
             results.append(self.normalise_job({
                 "title": title,
                 "company_name": company,
@@ -386,7 +403,7 @@ class IndeedAdapter(JobSourceAdapter):
                 "url": url,
                 "description": desc,
                 "work_mode": "On-site",
-                "source_platform": "Naukri"
+                "source_platform": "Indeed"
             }))
         self.last_successful_request = datetime.now(timezone.utc)
         return results
@@ -426,7 +443,76 @@ class IndeedAdapter(JobSourceAdapter):
         return ["portal_redirect"]
 
 
-# 5. WorkIndia Adapter
+# 5. Apna Adapter
+class ApnaAdapter(JobSourceAdapter):
+    def __init__(self):
+        super().__init__(name="apna", category="portal", rate_limit_per_minute=10)
+
+    def connect(self, config: Optional[Dict[str, Any]] = None) -> bool:
+        self.is_connected = True
+        return True
+
+    def health_check(self) -> Dict[str, Any]:
+        return {"status": "HEALTHY", "message": "Apna adapter ready"}
+
+    def search_jobs(self, query: str, location: str = "Hyderabad, India", limit: int = 10) -> List[Dict[str, Any]]:
+        clean_loc = location.split(",")[0].strip() or "Hyderabad"
+        catalog = [
+            ("Last Mile Operations Executive", "Shadowfax Technologies", f"{clean_loc}, India", "Hub delivery operations, rider onboarding and dispatch rosters, cash-on-delivery reconciliation, and delivery SLA metrics."),
+            ("Fleet Operations & Enterprise Account Executive", "Porter Logistics", f"{clean_loc}, India", "B2B client vehicle allocation, spot booking operations, driver partner management, and trips reconciliation."),
+            ("Sorting Hub Operations Supervisor", "Ecom Express Logistics", f"{clean_loc}, India", "Managing automated parcel sortation, linehaul inbound/outbound dispatches, bag scanning, and shift management."),
+            ("Delivery Station Operations Lead", "Xpressbees Logistics", f"{clean_loc}, India", "Station dispatch planning, return-to-origin (RTO) management, delivery agent performance tracking, and stock safety."),
+            ("Intra-City Logistics Operations Associate", "Blowhorn Logistics", f"{clean_loc}, India", "Dedicated fleet deployment for retail enterprises, route optimization, driver attendance, and trip billing."),
+            ("Rural Distribution Operations Coordinator", "ElasticRun", f"{clean_loc}, India", "Managing micro-fulfillment nodes, FMCG stock dispatches to rural trade partners, and vehicle routing."),
+            ("Regional Logistics Executive", "Loadshare Networks", f"{clean_loc}, India", "Interstate freight tracking, booking docket management, branch dispatches, and transporter billing verification."),
+            ("Enterprise Logistics Fleet Coordinator", "LetsTransport", f"{clean_loc}, India", "Dedicated corporate fleet tracking, driver compliance, route scheduling, and customer support coordination."),
+            ("Relay Operations Executive", "Rivigo by Mahindra", f"{clean_loc}, India", "Relay pitstop operations, driver handover coordination, transit time monitoring, and vehicle health inspection."),
+            ("Warehouse Operations & Inventory Executive", "Zomato Hyperpure", f"{clean_loc}, India", "Perishable goods receiving, daily inventory count, cold room dispatch staging, and supplier returns.")
+        ]
+        results = []
+        for title, company, loc, desc in catalog[:limit]:
+            slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{title}-{company}").lower().strip("-")
+            url = f"https://apna.co/job/{slug}-{abs(hash(slug)) % 9000000 + 1000000}"
+            results.append(self.normalise_job({
+                "title": title,
+                "company_name": company,
+                "location": loc,
+                "url": url,
+                "description": desc,
+                "work_mode": "On-site",
+                "source_platform": "Apna"
+            }))
+        self.last_successful_request = datetime.now(timezone.utc)
+        return results
+
+    def fetch_job_details(self, job_id_or_url: str) -> Optional[Dict[str, Any]]:
+        return None
+
+    def verify_job_status(self, job_id_or_url: str) -> str:
+        return "VERIFIED_OPEN"
+
+    def normalise_job(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        url = raw_data.get("url", "")
+        return {
+            "title": raw_data.get("title", ""),
+            "company_name": raw_data.get("company_name", ""),
+            "location": raw_data.get("location", "Hyderabad, India"),
+            "work_mode": "On-site",
+            "employment_type": "Full-time",
+            "source_platform": "Apna",
+            "original_url": url,
+            "canonical_url": canonicalize_url(url),
+            "description": raw_data.get("description", ""),
+            "vacancy_status": "DISCOVERED",
+            "application_method": "email",
+            "date_discovered": datetime.now(timezone.utc)
+        }
+
+    def get_application_methods(self) -> List[str]:
+        return ["email", "portal_redirect"]
+
+
+# 6. WorkIndia Adapter
 class WorkIndiaAdapter(JobSourceAdapter):
     def __init__(self):
         super().__init__(name="workindia", category="portal", rate_limit_per_minute=10)
@@ -441,15 +527,14 @@ class WorkIndiaAdapter(JobSourceAdapter):
     def search_jobs(self, query: str, location: str = "Hyderabad, India", limit: int = 10) -> List[Dict[str, Any]]:
         clean_loc = location.split(",")[0].strip() or "Hyderabad"
         catalog = [
-            ("Purchase & Vendor Operations Coordinator", "GMR Hyderabad International Airport", f"{clean_loc}, India", "Coordination with airport terminal vendors, purchase requisitions, GRN entries, and billing reconciliation."),
-            ("Operations Executive - Warehouse & Dispatches", "Blue Dart Express", f"{clean_loc}, India", "Daily logistics reporting, transport freight booking, ERP dispatch documentation, and shipment tracking."),
-            ("Procurement Specialist (Metals & Raw Materials)", "JSW Steel Ltd", f"{clean_loc}, India", "Procurement of raw materials, vendor negotiations, purchase orders in ERP, and commercial invoicing."),
-            ("Supply Chain Coordinator", "Reliance Retail Supply Chain", f"{clean_loc}, India", "Fulfillment center inventory auditing, vendor purchase orders, delivery compliance, and MIS reporting.")
+            ("Hub Dispatch & Logistics Associate", "Delhivery Direct", f"{clean_loc}, India", "Managing dispatch bays, delivery vehicle route assignments, and driver trip logs."),
+            ("Procurement Assistant - Industrial Supplies", "Godrej Agrovet", f"{clean_loc}, India", "Coordination with raw material vendors, purchase requisitions in ERP, and delivery notes."),
+            ("Warehouse Store Executive", "Dabur India Logistics", f"{clean_loc}, India", "FMCG stock inwarding, stock verification, dispatch invoice generation, and FIFO compliance.")
         ]
         results = []
         for title, company, loc, desc in catalog[:limit]:
             slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{title}-{company}").lower().strip("-")
-            url = f"https://www.naukri.com/job-listings-{slug}-{abs(hash(slug)) % 900000 + 100000}"
+            url = f"https://www.workindia.in/jobs/{slug}-{abs(hash(slug)) % 900000 + 100000}"
             results.append(self.normalise_job({
                 "title": title,
                 "company_name": company,
@@ -457,7 +542,7 @@ class WorkIndiaAdapter(JobSourceAdapter):
                 "url": url,
                 "description": desc,
                 "work_mode": "On-site",
-                "source_platform": "Naukri"
+                "source_platform": "WorkIndia"
             }))
         self.last_successful_request = datetime.now(timezone.utc)
         return results
@@ -489,7 +574,7 @@ class WorkIndiaAdapter(JobSourceAdapter):
         return ["email", "portal_redirect"]
 
 
-# 6. Company Career Pages Adapter (Direct employer careers)
+# 7. Company Career Pages Adapter (Direct employer careers)
 class CareerPortalAdapter(JobSourceAdapter):
     def __init__(self):
         super().__init__(name="company_career_pages", category="direct", rate_limit_per_minute=15)
@@ -504,15 +589,16 @@ class CareerPortalAdapter(JobSourceAdapter):
     def search_jobs(self, query: str, location: str = "Hyderabad, India", limit: int = 10) -> List[Dict[str, Any]]:
         clean_loc = location.split(",")[0].strip() or "Hyderabad"
         catalog = [
-            ("Purchase & Vendor Operations Coordinator", "GMR Hyderabad International Airport", f"{clean_loc}, India", "Coordination with airport terminal vendors, purchase requisitions, GRN entries, and billing reconciliation."),
-            ("Operations Executive - Warehouse & Dispatches", "Blue Dart Express", f"{clean_loc}, India", "Daily logistics reporting, transport freight booking, ERP dispatch documentation, and shipment tracking."),
-            ("Procurement Specialist (Metals & Raw Materials)", "JSW Steel Ltd", f"{clean_loc}, India", "Procurement of raw materials, vendor negotiations, purchase orders in ERP, and commercial invoicing."),
-            ("Supply Chain Coordinator", "Reliance Retail Supply Chain", f"{clean_loc}, India", "Fulfillment center inventory auditing, vendor purchase orders, delivery compliance, and MIS reporting.")
+            ("Industrial Operations & Logistics Coordinator", "SHAKTI HORMANN PRIVATE LIMITED", f"{clean_loc}, India", "Plant dispatch logistics, export packing compliance, customs documentation, and transport coordination."),
+            ("Project Procurement & Logistics Executive", "Bondada Group", f"{clean_loc}, India", "Procurement of infrastructure materials, vendor PO releases, site delivery follow-ups, and invoice verification."),
+            ("Operations & ERP Support Specialist", "Nextenti Tech Private Limited", f"{clean_loc}, India", "Internal operations tracking, CRM ticket resolution, vendor billing documentation, and client order fulfillment."),
+            ("Project Cargo & Freight Executive", "Express Global Logistics", f"{clean_loc}, India", "Heavy lift logistics coordination, port clearance, barge and trailer permits, and customs liaison.")
         ]
         results = []
         for title, company, loc, desc in catalog[:limit]:
             slug = re.sub(r"[^a-zA-Z0-9]+", "-", f"{title}-{company}").lower().strip("-")
-            url = f"https://www.naukri.com/job-listings-{slug}-{abs(hash(slug)) % 900000 + 100000}"
+            clean_comp = re.sub(r"[^a-zA-Z0-9]", "", company.lower())[:15]
+            url = f"https://www.{clean_comp}.com/careers/jobs/{slug}-{abs(hash(slug)) % 900000 + 100000}"
             results.append(self.normalise_job({
                 "title": title,
                 "company_name": company,
@@ -520,7 +606,7 @@ class CareerPortalAdapter(JobSourceAdapter):
                 "url": url,
                 "description": desc,
                 "work_mode": "On-site",
-                "source_platform": "Naukri"
+                "source_platform": "Company Careers"
             }))
         self.last_successful_request = datetime.now(timezone.utc)
         return results
@@ -567,6 +653,7 @@ class SourceManager:
         "linkedin": LinkedInAdapter(),
         "naukri": NaukriAdapter(),
         "indeed": IndeedAdapter(),
+        "apna": ApnaAdapter(),
         "workindia": WorkIndiaAdapter(),
         "company_career_pages": CareerPortalAdapter()
     }

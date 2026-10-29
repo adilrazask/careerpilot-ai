@@ -130,6 +130,34 @@ class EmailOutreachService:
         if prior_attempt and prior_attempt.status in ["SUCCESS", "SENDING"]:
             raise RuntimeError(f"Duplicate submission prevented: Application {application.id} already has attempt state '{prior_attempt.status}'.")
 
+        # Step 1 Rule: SEED DATA refusal
+        if getattr(job, "is_seed", False):
+            raise ValueError(f"Application refused: Job ID {job.id} ('{job.title}' at '{job.company_name}') is marked as SEED data and cannot be dispatched.")
+
+        contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+        if contact and getattr(contact, "is_seed", False):
+            raise ValueError(f"Application refused: Recruiter contact for Job ID {job.id} ('{contact.email}') is marked as SEED data and cannot be dispatched.")
+
+        seed_match = db.query(RecruiterContact).filter(RecruiterContact.email == contact_email, RecruiterContact.is_seed == True).first()
+        if seed_match:
+            raise ValueError(f"Application refused: Recruiter email '{contact_email}' is from a SEED contact.")
+
+        # Step 5 Rule: APPROVAL STATUS & RATE LIMITS
+        from app.services.approval_guard import check_approval_and_rate_limits
+        is_approved, appr_reason = check_approval_and_rate_limits(application, db)
+        if not is_approved:
+            raise ValueError(f"Application refused: {appr_reason}")
+
+        # Step 3 Rule: CONTACT RULES (Block generic local parts, portal domains, require source_url and Hunter/ZeroBounce)
+        from app.services.contact_rules import validate_contact_rules
+        target_contact = contact or db.query(RecruiterContact).filter_by(email=contact_email).first()
+        if target_contact:
+            is_valid_c, c_reason = validate_contact_rules(target_contact)
+            if not is_valid_c:
+                raise ValueError(f"Application refused by Contact Rules for '{contact_email}': {c_reason}")
+        else:
+            raise ValueError(f"Application refused: No verified RecruiterContact record exists for '{contact_email}'. Real verifier (Hunter/ZeroBounce) required.")
+
         # Create or update attempt as SENDING (reserve state)
         attempt = ApplicationAttempt(
             application_id=application.id,
@@ -145,6 +173,9 @@ class EmailOutreachService:
         db.commit()
 
         # Prepare Email Content using AdilEmailDrafter (Grounded strictly in Candidate Facts & JD Analysis)
+        from app.services.job_validator import validate_job_freshness
+        validate_job_freshness(job, db)
+
         from app.services.adil_email_drafter import AdilEmailDrafter
         policy = db.query(AutomationPolicy).filter_by(id=1).first()
         contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
@@ -188,35 +219,60 @@ class EmailOutreachService:
         else:
             body_text = draft_res.get("body")
 
-        sender = settings.EMAIL_FROM or settings.SMTP_USERNAME
-        host = settings.SMTP_HOST
-        port = settings.SMTP_PORT
-        user = settings.SMTP_USERNAME
-        password = settings.SMTP_PASSWORD
+        # Step 4 Rule: JOB FILTERS & SUBJECT VALIDATION
+        from app.services.job_filters import validate_job_filters, validate_email_subject
+        is_job_ok, filter_err = validate_job_filters(job, min_fit_score=70)
+        if not is_job_ok:
+            raise ValueError(f"Application refused by Job Filters: {filter_err}")
 
-        # If SMTP is not fully configured, or running under automated unit test suite, record as safe mock send
+        is_subj_ok, subj_err = validate_email_subject(subject)
+        if not is_subj_ok:
+            raise ValueError(f"Application refused by Subject Validation: {subj_err}")
+
+        # Determine attachments
+        original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+        pdf_path_to_use = None
+        if os.path.exists(original_user_pdf):
+            pdf_path_to_use = original_user_pdf
+        elif resume_version and resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
+            pdf_path_to_use = resume_version.pdf_path
+
+        sender = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
         now_ts = datetime.now(timezone.utc)
-        if not all([host, user, password, sender]) or "mock" in host.lower() or host == "smtp.example.com" or os.environ.get("PYTEST_CURRENT_TEST"):
-            # Development / Mock Mode
+
+        # Check if dry_run mode is active
+        provider_setting = os.environ.get("EMAIL_PROVIDER") or getattr(settings, "EMAIL_PROVIDER", "dry_run")
+        is_dry_run = (provider_setting == "dry_run")
+
+        if is_dry_run:
+            # Explicit dry_run simulation: must be labeled MOCK in DB and UI
+            mock_msg_id = f"<mock-{attempt.id}@{job.company_name.lower().replace(' ', '')}.com>"
+            mock_thread_id = f"mock-thread-{attempt.id}"
             attempt.status = "SUCCESS"
             attempt.evidence = {
-                "provider": "Mock / Sandbox SMTP",
-                "message_id": f"<mock-{attempt.id}@{host}>",
+                "provider": "MOCK",
+                "status": "MOCK_SIMULATED",
+                "message_id": mock_msg_id,
+                "thread_id": mock_thread_id,
                 "timestamp": now_ts.isoformat(),
-                "note": "SMTP simulated successfully; safe mock environment."
+                "note": "Dry run mock dispatch; provider = dry_run."
             }
-            application.current_status = "EMAIL_SENT"
+            application.current_status = "MOCK_SENT"
+            application.external_confirmation_id = mock_msg_id
+            application.thread_id = mock_thread_id
             application.delivery_evidence = attempt.evidence
 
             email_rec = EmailModel(
                 application_id=application.id,
                 direction="outbound",
-                sender=sender or "sandbox@careerpilot.ai",
+                sender=sender,
                 recipient=contact_email,
                 subject=subject,
                 body_text=body_text,
-                status="SENT",
-                provider="mock_smtp",
+                status="MOCK_SENT",
+                provider="MOCK",
+                message_id_header=mock_msg_id,
+                thread_id=mock_thread_id,
                 sent_or_received_at=now_ts
             )
             db.add(email_rec)
@@ -228,50 +284,58 @@ class EmailOutreachService:
                 actor="worker" if is_unattended else "owner",
                 entity_type="application_record",
                 entity_id=str(application.id),
-                details={"recipient": contact_email, "mode": "sandbox"}
+                details={"recipient": contact_email, "provider": "MOCK"}
             )
-            return {"status": "SUCCESS", "message": "Email simulated successfully (Mock SMTP)", "evidence": attempt.evidence}
+            return {"status": "SUCCESS", "message": "Email simulated successfully (MOCK mode)", "evidence": attempt.evidence}
 
-        # Real SMTP Transmission
-        try:
-            msg = EmailMessage()
+        if provider_setting == "smtp":
+            import smtplib
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            from email.mime.application import MIMEApplication
+            import uuid
+
+            msg = MIMEMultipart()
             msg["From"] = sender
             msg["To"] = contact_email
             msg["Subject"] = subject
-            msg.set_content(body_text)
+            msg_id = f"<{uuid.uuid4().hex}@{sender.split('@')[-1]}>"
+            msg["Message-ID"] = msg_id
+            thread_id = f"thread-{uuid.uuid4().hex[:12]}"
+            msg["X-Thread-ID"] = thread_id
 
-            # Attach candidate's exact original resume PDF (strictly no .txt files)
-            original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
-            pdf_path_to_use = None
-            if os.path.exists(original_user_pdf):
-                pdf_path_to_use = original_user_pdf
-            elif resume_version and resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
-                pdf_path_to_use = resume_version.pdf_path
+            msg.attach(MIMEText(body_text, "plain", "utf-8"))
 
             if pdf_path_to_use and os.path.exists(pdf_path_to_use):
                 with open(pdf_path_to_use, "rb") as f:
-                    pdf_data = f.read()
-                msg.add_attachment(
-                    pdf_data,
-                    maintype="application",
-                    subtype="pdf",
-                    filename="SK_Adil_Raja_Resume.pdf"
-                )
+                    part = MIMEApplication(f.read(), Name="SK_Adil_Raja_Resume.pdf")
+                part["Content-Disposition"] = 'attachment; filename="SK_Adil_Raja_Resume.pdf"'
+                msg.attach(part)
 
-            context = ssl.create_default_context()
-            with smtplib.SMTP(host, port, timeout=30) as server:
-                server.starttls(context=context)
+            host = settings.SMTP_HOST or "smtp.gmail.com"
+            port = settings.SMTP_PORT or 587
+            user = settings.SMTP_USERNAME or sender
+            password = settings.SMTP_PASSWORD
+
+            if not user or not password:
+                raise ValueError("SMTP_USERNAME or SMTP_PASSWORD is not configured. Cannot send email.")
+
+            with smtplib.SMTP(host, port, timeout=25) as server:
+                server.starttls()
                 server.login(user, password)
                 server.send_message(msg)
 
             attempt.status = "SUCCESS"
             attempt.evidence = {
                 "provider": "SMTP",
-                "host": host,
+                "message_id": msg_id,
+                "thread_id": thread_id,
                 "timestamp": now_ts.isoformat(),
-                "status": "Accepted by remote SMTP server; delivery confirmed to gateway"
+                "status": "Accepted by Google SMTP server"
             }
             application.current_status = "EMAIL_SENT"
+            application.external_confirmation_id = msg_id
+            application.thread_id = thread_id
             application.delivery_evidence = attempt.evidence
 
             email_rec = EmailModel(
@@ -283,6 +347,8 @@ class EmailOutreachService:
                 body_text=body_text,
                 status="SENT",
                 provider="smtp",
+                message_id_header=msg_id,
+                thread_id=thread_id,
                 sent_or_received_at=now_ts
             )
             db.add(email_rec)
@@ -290,36 +356,75 @@ class EmailOutreachService:
 
             record_audit_log(
                 db=db,
-                action="application_email_sent",
+                action="application_email_sent_smtp",
                 actor="worker" if is_unattended else "owner",
                 entity_type="application_record",
                 entity_id=str(application.id),
-                details={"recipient": contact_email, "evidence": attempt.evidence}
+                details={"recipient": contact_email, "provider": "smtp", "message_id": msg_id}
             )
-            return {"status": "SUCCESS", "message": "Application email sent successfully.", "evidence": attempt.evidence}
+            return {"status": "SUCCESS", "message": f"Email delivered to {contact_email} via Google SMTP", "evidence": attempt.evidence}
 
-        except Exception as e:
-            attempt.status = "FAILED"
-            attempt.error_message = str(e)
-            attempt.retry_eligible = False # Require manual review for failure to prevent duplicate flooding
-            application.current_status = "DELIVERY_FAILED"
-            db.commit()
+        # Real Send: Gmail API OAuth (never falls back to mock silently)
+        from app.services.gmail_service import GmailService
+        send_res = GmailService.send_message(
+            sender=sender,
+            recipient=contact_email,
+            subject=subject,
+            body_text=body_text,
+            pdf_attachment_path=pdf_path_to_use
+        )
 
-            record_audit_log(
-                db=db,
-                action="application_email_failed",
-                actor="worker" if is_unattended else "owner",
-                entity_type="application_record",
-                entity_id=str(application.id),
-                details={"error": str(e), "recipient": contact_email}
-            )
-            raise RuntimeError(f"SMTP transmission failed: {e}")
+        attempt.status = "SUCCESS"
+        attempt.evidence = {
+            "provider": "GMAIL_API",
+            "message_id": send_res["message_id"],
+            "thread_id": send_res["thread_id"],
+            "timestamp": now_ts.isoformat(),
+            "status": "Accepted by Gmail API"
+        }
+        application.current_status = "EMAIL_SENT"
+        application.external_confirmation_id = send_res["message_id"]
+        application.thread_id = send_res["thread_id"]
+        application.delivery_evidence = attempt.evidence
+
+        email_rec = EmailModel(
+            application_id=application.id,
+            direction="outbound",
+            sender=sender,
+            recipient=contact_email,
+            subject=subject,
+            body_text=body_text,
+            status="SENT",
+            provider="gmail_api",
+            message_id_header=send_res["message_id"],
+            thread_id=send_res["thread_id"],
+            sent_or_received_at=now_ts
+        )
+        db.add(email_rec)
+        db.commit()
+
+        record_audit_log(
+            db=db,
+            action="application_email_sent",
+            actor="worker" if is_unattended else "owner",
+            entity_type="application_record",
+            entity_id=str(application.id),
+            details={"recipient": contact_email, "evidence": attempt.evidence}
+        )
+        return {"status": "SUCCESS", "message": "Application email sent via Gmail API", "evidence": attempt.evidence}
 
     @classmethod
     def send_follow_up_email(cls, task: FollowUpTask, db: Session) -> Dict[str, Any]:
         """Dispatches an automated polite follow-up email to the recruiter with candidate's tailored resume attached."""
         app = task.application
         job = app.job
+
+        if getattr(job, "is_seed", False):
+            raise ValueError(f"Follow-up refused: Job ID {job.id} ('{job.title}') is marked as SEED data and cannot be dispatched.")
+        contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+        if contact and getattr(contact, "is_seed", False):
+            raise ValueError(f"Follow-up refused: Recruiter contact for Job ID {job.id} ('{contact.email}') is marked as SEED data.")
+
         recipient = (app.primary_recipient or "").strip()
         if not recipient:
             raise ValueError(f"Application {app.id} does not have a primary recipient.")
@@ -333,67 +438,17 @@ class EmailOutreachService:
             f"Warm regards,\n{settings.CAREER_FULL_NAME}\n{settings.CAREER_PHONE} | {settings.CAREER_EMAIL or settings.EMAIL_FROM}"
         )
 
-        sender = settings.EMAIL_FROM or settings.SMTP_USERNAME
-        host = settings.SMTP_HOST
-        port = settings.SMTP_PORT
-        user = settings.SMTP_USERNAME
-        password = settings.SMTP_PASSWORD
-
+        sender = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
         now_ts = datetime.now(timezone.utc)
-        # Mock / Sandbox or Test environment
-        if not all([host, user, password, sender]) or "mock" in host.lower() or host == "smtp.example.com" or os.environ.get("PYTEST_CURRENT_TEST"):
+
+        # Check if dry_run mode is active
+        provider_setting = os.environ.get("EMAIL_PROVIDER") or getattr(settings, "EMAIL_PROVIDER", "dry_run")
+        is_dry_run = (provider_setting == "dry_run")
+
+        if is_dry_run:
             task.status = "SENT"
             task.sent_at = now_ts
-            email_rec = EmailModel(
-                application_id=app.id,
-                direction="outbound",
-                sender=sender or "sandbox@careerpilot.ai",
-                recipient=recipient,
-                subject=subject,
-                body_text=body_text,
-                status="SENT",
-                provider="mock_smtp",
-                sent_or_received_at=now_ts
-            )
-            db.add(email_rec)
-            db.commit()
-            return {"status": "SUCCESS", "message": "Follow-up email sent (Sandbox Mock)", "recipient": recipient}
-
-        # Real SMTP Transmission
-        try:
-            msg = EmailMessage()
-            msg["From"] = sender
-            msg["To"] = recipient
-            msg["Subject"] = subject
-            msg.set_content(body_text)
-
-            # Attach candidate's exact original resume PDF (strictly no .txt files)
-            original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
-            pdf_path_to_use = None
-            rv = app.resume_version
-            if os.path.exists(original_user_pdf):
-                pdf_path_to_use = original_user_pdf
-            elif rv and rv.pdf_path and os.path.exists(rv.pdf_path):
-                pdf_path_to_use = rv.pdf_path
-
-            if pdf_path_to_use and os.path.exists(pdf_path_to_use):
-                with open(pdf_path_to_use, "rb") as f:
-                    pdf_data = f.read()
-                msg.add_attachment(
-                    pdf_data,
-                    maintype="application",
-                    subtype="pdf",
-                    filename="SK_Adil_Raja_Resume.pdf"
-                )
-
-            context = ssl.create_default_context()
-            with smtplib.SMTP(host, port, timeout=30) as server:
-                server.starttls(context=context)
-                server.login(user, password)
-                server.send_message(msg)
-
-            task.status = "SENT"
-            task.sent_at = now_ts
+            mock_msg_id = f"<mock-followup-{task.id}@careerpilot.ai>"
             email_rec = EmailModel(
                 application_id=app.id,
                 direction="outbound",
@@ -401,26 +456,55 @@ class EmailOutreachService:
                 recipient=recipient,
                 subject=subject,
                 body_text=body_text,
-                status="SENT",
-                provider="smtp",
+                status="MOCK_SENT",
+                provider="MOCK",
+                message_id_header=mock_msg_id,
+                thread_id=app.thread_id or f"mock-thread-{app.id}",
                 sent_or_received_at=now_ts
             )
             db.add(email_rec)
             db.commit()
+            return {"status": "SUCCESS", "message": "Follow-up email sent (MOCK mode)", "recipient": recipient}
 
-            record_audit_log(
-                db=db,
-                action="follow_up_email_sent_smtp",
-                actor="follow_up_service",
-                entity_type="follow_up_task",
-                entity_id=str(task.id),
-                details={"recipient": recipient, "sequence": task.follow_up_sequence}
-            )
-            return {"status": "SUCCESS", "message": "Follow-up email sent successfully via SMTP.", "recipient": recipient}
-        except Exception as e:
-            task.notes = f"Follow-up delivery failed: {e}"
-            db.commit()
-            raise RuntimeError(f"Follow-up SMTP send failed: {e}")
+        # Real Send: Gmail API OAuth (in the same thread)
+        from app.services.gmail_service import GmailService
+        send_res = GmailService.send_message(
+            sender=sender,
+            recipient=recipient,
+            subject=subject,
+            body_text=body_text,
+            pdf_attachment_path=None,
+            thread_id=app.thread_id or None,
+            in_reply_to=app.external_confirmation_id or None
+        )
+
+        task.status = "SENT"
+        task.sent_at = now_ts
+        email_rec = EmailModel(
+            application_id=app.id,
+            direction="outbound",
+            sender=sender,
+            recipient=recipient,
+            subject=subject,
+            body_text=body_text,
+            status="SENT",
+            provider="gmail_api",
+            message_id_header=send_res["message_id"],
+            thread_id=send_res["thread_id"],
+            sent_or_received_at=now_ts
+        )
+        db.add(email_rec)
+        db.commit()
+
+        record_audit_log(
+            db=db,
+            action="follow_up_email_sent_gmail_api",
+            actor="follow_up_service",
+            entity_type="follow_up_task",
+            entity_id=str(task.id),
+            details={"recipient": recipient, "sequence": task.follow_up_sequence, "thread_id": send_res["thread_id"]}
+        )
+        return {"status": "SUCCESS", "message": "Follow-up email sent via Gmail API", "recipient": recipient, "thread_id": send_res["thread_id"]}
 
     @classmethod
     def poll_inbound_recruiter_replies(cls, db: Session) -> List[Dict[str, Any]]:

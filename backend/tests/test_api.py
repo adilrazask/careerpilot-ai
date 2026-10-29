@@ -106,7 +106,7 @@ def test_integrations_list_and_test(client):
     assert test_res.json()["status"] == "SUCCESS"
 
 def test_audit_logs(client):
-    res = client.get("/api/audit/logs")
+    res = client.get("/api/audit/logs", headers={"X-Admin-Token": "cp_admin_audit_secret_token_9876"})
     assert res.status_code == 200
     logs = res.json()
     assert len(logs) > 0

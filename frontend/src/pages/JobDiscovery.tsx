@@ -3,7 +3,8 @@ import { api } from '../services/api';
 import { JobListing } from '../types';
 import {
   Compass, Search, Filter, ExternalLink, CheckCircle,
-  AlertCircle, Plus, Eye, RefreshCw, X, ShieldAlert, Sparkles, Mail
+  AlertCircle, Plus, Eye, RefreshCw, X, ShieldAlert, Sparkles, Mail,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -21,6 +22,10 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const [locFilter, setLocFilter] = useState('');
   const [minScore, setMinScore] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Manual Add Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -70,12 +75,17 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const handleLiveSearch = async () => {
     setIsSearchingLive(true);
     try {
-      await api.searchJobs({
+      const res = await api.searchJobs({
         query: searchQuery || 'Operations Executive',
         location: locFilter || 'Hyderabad, India',
         max_results: 10
       });
       await fetchJobs();
+      setCurrentPage(1);
+      if (res && typeof res.leads_added === 'number') {
+        setSyncMessage(`Live discovery complete! Found ${res.leads_found || 0} vacancies across portals and added ${res.leads_added} new genuine opportunities.`);
+        setTimeout(() => setSyncMessage(null), 6000);
+      }
     } catch (err: any) {
       console.error(err);
     } finally {
@@ -102,7 +112,11 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     fetchJobs();
-  }, [minScore, statusFilter]);
+    setCurrentPage(1);
+  }, [minScore, statusFilter, searchQuery, locFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
+  const paginatedJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleManualSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,7 +298,7 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                   </td>
                 </tr>
               ) : (
-                jobs.map(job => (
+                paginatedJobs.map(job => (
                   <tr key={job.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                     <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
                       <div className="space-y-0.5">
@@ -369,6 +383,53 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
             </tbody>
           </table>
         </div>
+
+        {/* Vacancy Pagination Control Bar */}
+        {jobs.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-xs">
+            <span className="text-slate-500">
+              Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {Math.min(currentPage * pageSize, jobs.length)}
+              </span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{jobs.length}</span> vacancies
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800 transition font-medium"
+              >
+                <ChevronLeft className="h-4 w-4" /> Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[28px] h-7 px-2 rounded-md text-xs font-semibold transition ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800 transition font-medium"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Detailed Job Modal (Section 4 requirements) */}

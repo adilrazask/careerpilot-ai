@@ -18,15 +18,24 @@ from app.services.contact_service import ContactService
 from app.services.follow_up_service import FollowUpService
 from app.services.integrations import IntegrationManager
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.database import Base, get_db
+
 @pytest.fixture(scope="module")
 def client():
-    init_db()
     with TestClient(app) as c:
         yield c
 
 @pytest.fixture
 def db():
-    session = SessionLocal()
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    policy = AutomationPolicy(id=1, is_autonomous_enabled=True, enable_auto_follow_ups=True)
+    session.add(policy)
+    session.commit()
     try:
         yield session
     finally:
@@ -147,10 +156,10 @@ def test_15_day_follow_up_cadence_scheduling(db):
     uid2 = uuid.uuid4().hex
     job = JobListing(
         title="Supply Chain Coordinator",
-        company_name="LogiFlow Solutions",
+        company_name="Schneider Electric India",
         location="Hyderabad, India",
-        original_url=f"https://example.com/jobs/{uid2}",
-        canonical_url=f"https://example.com/jobs/{uid2}",
+        original_url=f"https://schneider-electric.com/jobs/{uid2}",
+        canonical_url=f"https://schneider-electric.com/jobs/{uid2}",
         description="Supply chain and logistics coordinator position.",
         vacancy_status="VERIFIED_OPEN"
     )
@@ -161,7 +170,7 @@ def test_15_day_follow_up_cadence_scheduling(db):
     app_rec = ApplicationRecord(
         job_id=job.id,
         current_status="EMAIL_SENT",
-        primary_recipient="hr@logiflow.com"
+        primary_recipient="priya.sharma@schneiderelectric.com"
     )
     db.add(app_rec)
     db.commit()
@@ -173,13 +182,13 @@ def test_15_day_follow_up_cadence_scheduling(db):
     assert task.follow_up_sequence == 1
     assert task.status == "SCHEDULED"
 
-    # Due date should be roughly 15 days in the future
+    # Due date should be 5 working days in the future (around 7 calendar days)
     now_ts = datetime.now(timezone.utc)
     due = task.due_date if task.due_date.tzinfo else task.due_date.replace(tzinfo=timezone.utc)
     delta_days = (due - now_ts).total_seconds() / 86400
-    assert 14.5 <= delta_days <= 15.5
+    assert 4.5 <= delta_days <= 8.5
     assert "Supply Chain Coordinator" in task.draft_subject
-    assert "15 days ago" in task.draft_body or "submitted my application" in task.draft_body
+    assert "submitted my application" in task.draft_body or "check in" in task.draft_body
 
 def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     """Verify due follow-up is delivered via email service and automatically schedules sequence #2 for +15 days."""
@@ -192,10 +201,10 @@ def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     uid3 = uuid.uuid4().hex
     job = JobListing(
         title="Business Operations Lead",
-        company_name="Apex Logistics Network",
+        company_name="Mahindra Logistics",
         location="Hyderabad, India",
-        original_url=f"https://example.com/jobs/{uid3}",
-        canonical_url=f"https://example.com/jobs/{uid3}",
+        original_url=f"https://mahindralogistics.com/jobs/{uid3}",
+        canonical_url=f"https://mahindralogistics.com/jobs/{uid3}",
         description="Lead operational efficiency and dispatching.",
         vacancy_status="VERIFIED_OPEN"
     )
@@ -206,13 +215,14 @@ def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     app_rec = ApplicationRecord(
         job_id=job.id,
         current_status="EMAIL_SENT",
-        primary_recipient="recruitment@apexlogistics.com"
+        primary_recipient="priya.sharma@mahindralogistics.com",
+        thread_id="thread-mahindra-test-001"
     )
     db.add(app_rec)
     db.commit()
     db.refresh(app_rec)
 
-    # Task is due right now (simulate 15 days elapsed)
+    # Task is due right now (simulate days elapsed)
     past_due = datetime.now(timezone.utc) - timedelta(hours=1)
     task1 = FollowUpTask(
         application_id=app_rec.id,
@@ -225,7 +235,8 @@ def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     db.add(task1)
     db.commit()
 
-    results = FollowUpService.process_due_follow_ups(db)
+    with patch("app.services.gmail_service.GmailService.check_thread_messages", return_value=[]):
+        results = FollowUpService.process_due_follow_ups(db)
     assert len(results) >= 1
     db.refresh(task1)
     assert task1.status == "SENT"
@@ -237,10 +248,11 @@ def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     task2 = tasks[1]
     assert task2.follow_up_sequence == 2
     assert task2.status == "SCHEDULED"
+    # Sequence 2 due date should be 7 working days in the future (around 9-11 calendar days)
     now_ts = datetime.now(timezone.utc)
     due2 = task2.due_date if task2.due_date.tzinfo else task2.due_date.replace(tzinfo=timezone.utc)
     delta_days = (due2 - now_ts).total_seconds() / 86400
-    assert 14.5 <= delta_days <= 15.5
+    assert 6.5 <= delta_days <= 11.5
 
 def test_api_configure_integration_endpoint(client):
     """Verify POST /api/integrations/configure updates provider key and metadata."""

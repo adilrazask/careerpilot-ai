@@ -90,6 +90,48 @@ def generate_adil_hr_draft(job_id: int, db: Session = Depends(get_db)):
     )
     return draft_res
 
+@router.post("/draft-to-gmail/{app_id}")
+def create_gmail_draft_for_application(app_id: int, db: Session = Depends(get_db)):
+    """Creates a real Gmail draft in the user's Gmail mailbox for this pending application."""
+    import os
+    from app.config import settings
+    app_rec = db.query(ApplicationRecord).filter_by(id=app_id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail="Application record not found.")
+
+    job = app_rec.job
+    contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+    hr_name = contact.contact_name if contact else None
+
+    from app.services.adil_email_drafter import AdilEmailDrafter
+    from app.services.gmail_service import GmailService, GmailAPIError
+
+    draft_res = AdilEmailDrafter.draft(
+        job_title=job.title,
+        company_name=job.company_name,
+        jd_text=job.description or "",
+        hr_name=hr_name,
+        resume_attached=True
+    )
+
+    sender = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
+    pdf_path = "./data/resumes/SK_Adil_Raja_Resume.pdf"
+
+    try:
+        draft_info = GmailService.create_draft(
+            sender=sender,
+            recipient=app_rec.primary_recipient,
+            subject=draft_res.get("subject", f"Application for {job.title} – Adil"),
+            body_text=draft_res.get("body", ""),
+            pdf_attachment_path=pdf_path if os.path.exists(pdf_path) else None
+        )
+        app_rec.external_confirmation_id = draft_info["draft_id"]
+        app_rec.thread_id = draft_info.get("thread_id", "")
+        db.commit()
+        return {"status": "SUCCESS", "message": "Draft created in Gmail mailbox", "draft": draft_info}
+    except GmailAPIError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create Gmail draft: {e}")
+
 @router.post("/prepare/{job_id}", response_model=ApplicationRecordResponse)
 def prepare_application(job_id: int, db: Session = Depends(get_db)):
     job = db.query(JobListing).filter_by(id=job_id).first()
@@ -138,11 +180,29 @@ def prepare_application(job_id: int, db: Session = Depends(get_db)):
         resume_version_id=app_rec.resume_version_id
     )
 
+@router.post("/approve/{app_id}", response_model=ApplicationRecordResponse)
+def approve_application(app_id: int, db: Session = Depends(get_db)):
+    """Approve an application draft for dispatch (sets status to APPROVED_BY_USER)."""
+    app_rec = db.query(ApplicationRecord).filter_by(id=app_id).first()
+    if not app_rec:
+        raise HTTPException(status_code=404, detail="Application record not found.")
+
+    app_rec.current_status = "APPROVED_BY_USER"
+    db.commit()
+    db.refresh(app_rec)
+    return app_rec
+
 @router.post("/submit/{app_id}")
 def submit_application(app_id: int, db: Session = Depends(get_db)):
     app_rec = db.query(ApplicationRecord).filter_by(id=app_id).first()
     if not app_rec:
         raise HTTPException(status_code=404, detail="Application record not found.")
+
+    if app_rec.current_status != "APPROVED_BY_USER":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot submit: Application must be approved by user first (Current status: '{app_rec.current_status}')."
+        )
 
     job = app_rec.job
     profile = db.query(CareerProfile).filter_by(id=1).first()

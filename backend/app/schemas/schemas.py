@@ -162,6 +162,8 @@ class JobListingResponse(BaseModel):
     application_method: str
     hr_contact_status: str
     application_status: str
+    is_seed: bool = False
+    is_test: bool = False
     notes: Optional[str] = ""
     match_result: Optional[JobMatchResultSchema] = None
 
@@ -213,6 +215,8 @@ class RecruiterContactResponse(BaseModel):
     last_verification_date: Optional[datetime]
     confidence: float
     intended_use: str
+    is_seed: bool = False
+    is_test: bool = False
     notes: str
 
 class VerifyContactRequest(BaseModel):

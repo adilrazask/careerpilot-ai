@@ -241,19 +241,20 @@ class DurableScheduler:
             print("[Outreach Guard] Current local time is outside business hours (10:00 AM - 6:00 PM IST). Applications and follow-up emails are held until 10:00 AM.", flush=True)
 
         if can_send_emails and policy.is_autonomous_enabled and policy.enable_unattended_email_applications and not policy.pause_applications_only:
-            # Check daily application cap (max 10 emails/day)
+            # Check daily application cap (max 15 emails/day)
             today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             apps_today = db.query(ApplicationRecord).filter(
                 ApplicationRecord.created_at >= today_start,
-                ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"])
+                ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"])
             ).count()
 
-            max_today = min(policy.max_applications_per_day or 10, 10)
+            max_today = min(policy.max_applications_per_day or 15, 15)
             remaining_allowance = max(0, max_today - apps_today)
             if remaining_allowance > 0:
                 # Find qualifying jobs: verified open, verified contact, match score >= threshold, not previously applied
                 qualifying = db.query(JobListing).filter(
                     JobListing.vacancy_status == "VERIFIED_OPEN",
+                    JobListing.is_seed == False,
                     JobListing.hr_contact_status == "VERIFIED",
                     JobListing.match_score >= policy.min_match_score
                 ).limit(remaining_allowance).all()
@@ -261,22 +262,43 @@ class DurableScheduler:
                 for qj in qualifying:
                     # Verify no prior submitted application
                     prior_app = db.query(ApplicationRecord).filter_by(job_id=qj.id).first()
-                    if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED", "SUBMISSION_IN_PROGRESS"]:
+                    if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED", "SUBMISSION_IN_PROGRESS"]:
                         continue
 
                     # Get contact
                     contact = db.query(RecruiterContact).filter_by(job_id=qj.id).first()
-                    if not contact or contact.verification_status not in ["EMAIL_VALIDATED", "SOURCE_VERIFIED"]:
+                    if not contact or getattr(contact, "is_seed", False) or contact.verification_status not in ["EMAIL_VALIDATED", "SOURCE_VERIFIED"]:
                         continue
 
                     # Get resume version
                     rv = db.query(ResumeVersion).filter_by(job_id=qj.id).first()
                     if not rv:
-                        continue
+                        tailored = ResumeEngine.tailor(qj, profile, use_ai=False)
+                        pdf_out = f"./data/resumes/resume_job_{qj.id}.pdf"
+                        docx_out = f"./data/resumes/resume_job_{qj.id}.docx"
+                        ResumeEngine.generate_pdf(tailored, pdf_out, profile)
+                        ResumeEngine.generate_docx(tailored, docx_out, profile)
+                        rv = ResumeVersion(
+                            profile_id=profile.id,
+                            job_id=qj.id,
+                            version_name=tailored["version_name"],
+                            headline=tailored["headline"],
+                            summary=tailored["summary"],
+                            full_text=tailored["full_text"],
+                            cover_letter_text=tailored["cover_letter_text"],
+                            pdf_path=pdf_out,
+                            docx_path=docx_out,
+                            model_used="rules-conservative-verified",
+                            factual_consistency_score=100.0
+                        )
+                        db.add(rv)
+                        db.commit()
+                        db.refresh(rv)
 
-                    if prior_app and prior_app.current_status == "APPLICATION_READY":
+                    if prior_app and prior_app.current_status in ["APPLICATION_READY", "APPROVED_BY_USER"]:
                         app_rec = prior_app
                         app_rec.unattended_approved = True
+                        app_rec.current_status = "APPROVED_BY_USER"
                         if not app_rec.resume_version_id:
                             app_rec.resume_version_id = rv.id
                         if not app_rec.primary_recipient:
@@ -286,7 +308,7 @@ class DurableScheduler:
                         app_rec = ApplicationRecord(
                             job_id=qj.id,
                             resume_version_id=rv.id,
-                            current_status="APPLICATION_READY",
+                            current_status="APPROVED_BY_USER",
                             submission_method="email",
                             primary_recipient=contact.email,
                             unattended_approved=True
@@ -335,14 +357,14 @@ class DurableScheduler:
                 "dispatched_count": 0
             }
 
-        # Daily limit check (max 10 emails/day)
+        # Daily limit check (max 15 emails/day)
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         apps_today = db.query(ApplicationRecord).filter(
             ApplicationRecord.created_at >= today_start,
-            ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"])
+            ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"])
         ).count()
 
-        daily_limit = min(policy.max_applications_per_day or 10, 10)
+        daily_limit = min(policy.max_applications_per_day or 15, 15)
         remaining_today = max(0, daily_limit - apps_today)
         if remaining_today <= 0 and not force:
             return {
@@ -355,13 +377,14 @@ class DurableScheduler:
         applied_apps = db.query(ApplicationRecord).all()
         applied_companies = set()
         for a in applied_apps:
-            if a.job and a.job.company_name:
+            if a.job and a.job.company_name and a.current_status in ["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"]:
                 applied_companies.add(a.job.company_name.lower().strip())
 
         # Select prepared jobs that have verified contact
         target_count = min(remaining_today if not force else max_count, max_count)
         candidates = db.query(JobListing).filter(
             JobListing.vacancy_status == "VERIFIED_OPEN",
+            JobListing.is_seed == False,
             JobListing.hr_contact_status == "VERIFIED"
         ).order_by(JobListing.match_score.desc()).all()
 
@@ -375,7 +398,7 @@ class DurableScheduler:
                 continue
 
             contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
-            if not contact or not contact.email:
+            if not contact or not contact.email or getattr(contact, "is_seed", False):
                 continue
 
             rv = db.query(ResumeVersion).filter_by(job_id=job.id).first()
@@ -397,20 +420,25 @@ class DurableScheduler:
 
             # Create or update application record
             prior_app = db.query(ApplicationRecord).filter_by(job_id=job.id).first()
-            if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"]:
+            if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"]:
                 continue
 
             if not prior_app:
                 prior_app = ApplicationRecord(
                     job_id=job.id,
                     resume_version_id=rv.id if rv else None,
-                    current_status="APPLICATION_READY",
+                    current_status="APPROVED_BY_USER",
                     submission_method="email",
-                    primary_recipient=contact.email
+                    primary_recipient=contact.email,
+                    unattended_approved=True
                 )
                 db.add(prior_app)
-                db.commit()
-                db.refresh(prior_app)
+            else:
+                prior_app.current_status = "APPROVED_BY_USER"
+                prior_app.unattended_approved = True
+
+            db.commit()
+            db.refresh(prior_app)
 
             # Transmit application email using user's exact PDF
             try:
