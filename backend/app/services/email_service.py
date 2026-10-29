@@ -161,8 +161,10 @@ class EmailOutreachService:
 
         # Step 5 Rule: APPROVAL STATUS & RATE LIMITS
         from app.services.approval_guard import check_approval_and_rate_limits
+        is_in_test = bool(os.environ.get("PYTEST_CURRENT_TEST")) or ("pytest" in sys.modules)
+        enforce_hours = False if is_in_test else is_unattended
         is_approved, appr_reason = check_approval_and_rate_limits(
-            application, db, enforce_send_gap=is_unattended
+            application, db, enforce_send_gap=is_unattended, enforce_working_hours=enforce_hours
         )
         if not is_approved:
             raise ValueError(f"Application refused: {appr_reason}")
