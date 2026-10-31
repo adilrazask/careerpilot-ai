@@ -35,9 +35,11 @@ class Settings(BaseSettings):
     HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
     ZEROBOUNCE_API_KEY: str = os.getenv("ZEROBOUNCE_API_KEY", "")
 
-    # Email Dispatch Provider (smtp, dry_run, gmail_api)
+    # Email Dispatch Provider (smtp, dry_run, gmail_api, resend, brevo)
     EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "dry_run" if "pytest" in sys.modules else "smtp")
     GMAIL_API_TOKEN: str = os.getenv("GMAIL_API_TOKEN", "")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
     
     # Outbound Email (SMTP)
     SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")

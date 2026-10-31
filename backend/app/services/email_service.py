@@ -3,6 +3,8 @@ import os
 import sys
 import re
 import ssl
+import base64
+import requests
 import smtplib
 import imaplib
 import email
@@ -358,21 +360,75 @@ class EmailOutreachService:
             user = settings.SMTP_USERNAME or sender
             password = settings.SMTP_PASSWORD
 
-            if not user or not password:
-                raise ValueError("SMTP_USERNAME or SMTP_PASSWORD is not configured. Cannot send email.")
+            brevo_key = os.getenv("BREVO_API_KEY") or getattr(settings, "BREVO_API_KEY", "")
+            resend_key = os.getenv("RESEND_API_KEY") or getattr(settings, "RESEND_API_KEY", "")
 
-            with smtplib.SMTP(host, port, timeout=25) as server:
-                server.starttls()
-                server.login(user, password)
-                server.send_message(msg)
+            sent_via = "SMTP"
+            pdf_b64 = ""
+            if pdf_path_to_use and os.path.exists(pdf_path_to_use):
+                with open(pdf_path_to_use, "rb") as f:
+                    pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+            try:
+                if not user or not password:
+                    raise ValueError("SMTP_USERNAME or SMTP_PASSWORD is not configured.")
+                with smtplib.SMTP(host, port, timeout=25) as server:
+                    server.starttls()
+                    server.login(user, password)
+                    server.send_message(msg)
+            except OSError as smtp_err:
+                # Fallback to HTTPS APIs (Port 443 - never blocked by cloud firewalls)
+                if brevo_key:
+                    b_payload = {
+                        "sender": {"name": "SK Adil Raja", "email": sender},
+                        "to": [{"email": contact_email}],
+                        "subject": subject,
+                        "textContent": body_text
+                    }
+                    if pdf_b64:
+                        b_payload["attachment"] = [{"name": "SK_Adil_Raja_Resume.pdf", "content": pdf_b64}]
+                    b_res = requests.post(
+                        "https://api.brevo.com/v3/smtp/email",
+                        headers={"api-key": brevo_key, "Content-Type": "application/json"},
+                        json=b_payload,
+                        timeout=20
+                    )
+                    if b_res.status_code not in (200, 201):
+                        raise RuntimeError(f"Brevo HTTPS dispatch failed ({b_res.status_code}): {b_res.text}")
+                    sent_via = "BREVO_HTTPS"
+                elif resend_key:
+                    r_payload = {
+                        "from": f"SK Adil Raja <onboarding@resend.dev>" if "gmail.com" in sender else f"SK Adil Raja <{sender}>",
+                        "to": [contact_email],
+                        "subject": subject,
+                        "text": body_text
+                    }
+                    if pdf_b64:
+                        r_payload["attachments"] = [{"filename": "SK_Adil_Raja_Resume.pdf", "content": pdf_b64}]
+                    r_res = requests.post(
+                        "https://api.resend.com/emails",
+                        headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                        json=r_payload,
+                        timeout=20
+                    )
+                    if r_res.status_code not in (200, 201):
+                        raise RuntimeError(f"Resend HTTPS dispatch failed ({r_res.status_code}): {r_res.text}")
+                    sent_via = "RESEND_HTTPS"
+                else:
+                    raise RuntimeError(
+                        f"Cloud firewall blocked outbound SMTP ({smtp_err}). "
+                        "Render Free Tier blocks raw SMTP ports 25 and 587. "
+                        "To send emails from Render for free, add a free BREVO_API_KEY or RESEND_API_KEY in Render Environment Variables, "
+                        "or upgrade Render to Starter ($7/mo) to lift the SMTP restriction."
+                    )
 
             attempt.status = "SUCCESS"
             attempt.evidence = {
-                "provider": "SMTP",
+                "provider": sent_via,
                 "message_id": msg_id,
                 "thread_id": thread_id,
                 "timestamp": now_ts.isoformat(),
-                "status": "Accepted by Google SMTP server"
+                "status": f"Delivered via {sent_via}"
             }
             application.current_status = "EMAIL_SENT"
             application.external_confirmation_id = msg_id
