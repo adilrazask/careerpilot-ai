@@ -1,15 +1,25 @@
 #!/bin/bash
-# CareerPilot AI Unified Starter Script
+# CareerPilot AI Single-Command Unified Starter
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "=========================================================="
-echo " Starting CareerPilot AI Autonomous Platform "
+echo " Starting CareerPilot AI Autonomous Platform (Local Mode)"
 echo "=========================================================="
 
-echo "1. Initializing and checking Backend..."
+cleanup() {
+    echo ""
+    echo "Stopping all CareerPilot services..."
+    kill $(jobs -p) 2>/dev/null || true
+    exit 0
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+# 1. Start Backend in background
+echo "1. Starting Backend API & Autonomous Worker on port 8000..."
 cd "$ROOT_DIR/backend"
 if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment..."
     python3 -m venv .venv
     source .venv/bin/activate
     pip install -r requirements.txt
@@ -17,17 +27,44 @@ else
     source .venv/bin/activate
 fi
 
-# Run database migration / init
-PYTHONPATH=. python -c "from app.database_init import init_db; init_db()"
-echo "Database initialized at data/careerpilot.db"
+export PYTHONPATH=.
+export RUN_WORKER_IN_APP=true
+python3 -c "from app.database_init import init_db; init_db()"
+uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+BACKEND_PID=$!
+
+# Wait for backend to be ready
+echo "Waiting for backend to be ready..."
+until curl -s http://127.0.0.1:8000/health >/dev/null 2>&1; do
+    sleep 1
+done
+echo "✅ Backend API is live at http://localhost:8000"
+
+# 2. Start Frontend in background
+echo "2. Starting Frontend Dashboard on port 5173..."
+cd "$ROOT_DIR/frontend"
+npm run dev -- --host &
+FRONTEND_PID=$!
+
+# Wait for frontend to be ready
+until curl -s http://localhost:5173 >/dev/null 2>&1; do
+    sleep 1
+done
+echo "✅ Frontend Dashboard is live at http://localhost:5173"
 
 echo ""
-echo "To run the services concurrently, run the following in separate terminal windows:"
-echo "--------------------------------------------------------------------------------"
-echo "  Terminal 1 (Backend API):   cd $ROOT_DIR/backend && ./run_backend.sh"
-echo "  Terminal 2 (Worker Queue):  cd $ROOT_DIR/backend && ./run_worker.sh"
-echo "  Terminal 3 (Frontend SPA):  cd $ROOT_DIR/frontend && ./run_frontend.sh"
-echo "--------------------------------------------------------------------------------"
-echo "  FastAPI Swagger Docs:       http://localhost:8000/docs"
-echo "  Frontend Dashboard:         http://localhost:5173"
 echo "=========================================================="
+echo " 🧭 CareerPilot AI is RUNNING SUCCESSFULLY!"
+echo " 👉 URL: http://localhost:5173"
+echo " 👉 API Docs: http://localhost:8000/docs"
+echo " Press Ctrl+C anytime to stop."
+echo "=========================================================="
+echo ""
+
+# Automatically open in browser on Mac
+if command -v open >/dev/null 2>&1; then
+    open "http://localhost:5173"
+fi
+
+# Keep script running to keep background services alive
+wait
