@@ -260,7 +260,6 @@ def init_db(db: Session = None):
                 availability="30 days",
                 work_authorisation="Citizen of India, open to UAE employment visa",
                 preferred_industries=["Manufacturing", "Supply Chain & Logistics", "Industrial Goods", "E-Commerce", "Corporate Services"],
-                target_seniority="Mid-Level",
                 excluded_industries=[],
                 excluded_companies=[],
                 work_mode=["On-site", "Hybrid", "Remote"]
