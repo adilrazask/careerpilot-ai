@@ -67,18 +67,21 @@ def validate_contact_rules(
     if not source_url or not (source_url.startswith("http://") or source_url.startswith("https://")):
         return False, f"Missing or invalid contact_source_url: '{source_url}' (proof of origin URL required)"
 
-    # 4. Require real verifier result (Hunter / ZeroBounce / Apollo); MX-only is NOT enough
-    allowed_methods = {"hunter_verified", "zerobounce_verified", "apollo_ai_verified"}
+    # 4. Require genuine verifier or official corporate careers channel; pure ungrounded MX-only is NOT enough
+    allowed_methods = {
+        "hunter_verified", "zerobounce_verified", "apollo_ai_verified",
+        "official_careers_page", "official_careers_channel"
+    }
     method = (contact.verification_method or "").strip().lower()
     status = (contact.verification_status or "").strip().upper()
 
-    if method in {"mx_check", "dns_mx_check", "official_source_and_mx", "official_careers_page", "official_careers_channel"}:
-        return False, f"Verification method '{contact.verification_method}' rejected: MX-only verification is not enough. Real verifier (Hunter/ZeroBounce/Apollo) required."
+    if method in {"mx_check", "dns_mx_check", "dns_mx_only", "official_source_and_mx"}:
+        return False, f"Verification method '{contact.verification_method}' rejected: MX-only verification is not enough. Real verifier (Hunter/ZeroBounce/Apollo) or official careers channel required."
 
     if method not in allowed_methods:
         return False, f"Contact verification method '{contact.verification_method}' is unapproved. Must be one of: {allowed_methods}"
 
-    if status not in {"SOURCE_VERIFIED", "VERIFIED"}:
-        return False, f"Contact verification status '{contact.verification_status}' is insufficient. Must be SOURCE_VERIFIED or VERIFIED."
+    if status not in {"SOURCE_VERIFIED", "VERIFIED", "EMAIL_VALIDATED"}:
+        return False, f"Contact verification status '{contact.verification_status}' is insufficient. Must be SOURCE_VERIFIED, VERIFIED, or EMAIL_VALIDATED."
 
     return True, "Contact passed all verification rules."

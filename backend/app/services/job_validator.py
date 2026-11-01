@@ -73,8 +73,8 @@ def validate_job_freshness(
     target_url = job.canonical_url or job.original_url
 
     # Check existing timestamp
-    if not force_live_check and job.last_verified_at:
-        last_v = job.last_verified_at
+    last_v = job.last_verified_at or job.last_verified_date or job.date_discovered
+    if not force_live_check and last_v:
         if last_v.tzinfo is None:
             last_v = last_v.replace(tzinfo=timezone.utc)
         age = now - last_v
@@ -88,6 +88,9 @@ def validate_job_freshness(
     job.last_verified_at = now
 
     if not is_valid:
+        if "Network error" in reason and job.vacancy_status == "VERIFIED_OPEN":
+            # Temporary network / DNS / rate-limit barrier; preserve already verified active status
+            return job
         job.vacancy_status = "CLOSED"
         db.commit()
         raise ValueError(f"Job validation rejected for Job ID {job.id} ('{job.title}'): {reason}")

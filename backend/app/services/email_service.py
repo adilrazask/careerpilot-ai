@@ -187,20 +187,10 @@ class EmailOutreachService:
             raise ValueError(f"Application refused: No verified RecruiterContact record exists for '{contact_email}'. Real verifier (Hunter/ZeroBounce) required.")
 
         # Create or update attempt as SENDING (reserve state)
-        if prior_attempt and prior_attempt.status == "SENDING":
+        if prior_attempt:
             attempt = prior_attempt
+            attempt.status = "SENDING"
             attempt.attempted_at = datetime.now(timezone.utc)
-        elif prior_attempt and prior_attempt.status == "SUCCESS" and not is_dry_run:
-            attempt = ApplicationAttempt(
-                application_id=application.id,
-                submission_method="email",
-                recipient_or_portal=contact_email,
-                idempotency_key=f"app-{application.id}-job-{job.id}-{contact_email}-live",
-                status="SENDING",
-                attempt_number=(len(application.attempts) + 1),
-                attempted_at=datetime.now(timezone.utc)
-            )
-            db.add(attempt)
         else:
             attempt = ApplicationAttempt(
                 application_id=application.id,

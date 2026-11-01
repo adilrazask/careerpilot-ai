@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import (
     ScheduledTask, WorkerRun, AutomationPolicy, JobListing, CareerProfile,
-    RecruiterContact, ApplicationRecord, ResumeVersion, SystemHealth, TaskEvent
+    RecruiterContact, ApplicationRecord, ApplicationAttempt, ResumeVersion, SystemHealth, TaskEvent
 )
 from app.services.adapters import SourceManager
 from app.services.matching import MatchingEngine
@@ -511,6 +511,9 @@ class DurableScheduler:
         applied_companies = set()
         for a in applied_apps:
             if a.job and a.job.company_name and a.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"]:
+                recip = (a.primary_recipient or "").lower()
+                if any(b in recip for b in ["priya.sharma", "priya@", "fake", "example"]):
+                    continue
                 applied_companies.add(a.job.company_name.lower().strip())
 
         # Select prepared jobs that have verified contact
@@ -566,8 +569,15 @@ class DurableScheduler:
 
             # Create or update application record
             prior_app = db.query(ApplicationRecord).filter_by(job_id=job.id).first()
-            if prior_app and prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"]:
-                continue
+            if prior_app:
+                # Skip if already successfully applied
+                has_success = db.query(ApplicationAttempt).filter(
+                    ApplicationAttempt.application_id == prior_app.id,
+                    ApplicationAttempt.status == "SUCCESS"
+                ).first()
+                if has_success or prior_app.current_status in ["SUBMITTED", "EMAIL_SENT", "DELIVERY_CONFIRMED"]:
+                    applied_companies.add(company_key)
+                    continue
 
             if not prior_app:
                 prior_app = ApplicationRecord(
@@ -601,9 +611,15 @@ class DurableScheduler:
                     "recipient": contact.email,
                     "status": "SENT"
                 })
+                db.commit()
             except Exception as e:
-                job.notes = f"Failed to send: {e}"
-            db.commit()
+                db.rollback()
+                print(f"[Dispatch Prepared Batch] Failed to send to {job.company_name} ({contact.email}): {e}", flush=True)
+                try:
+                    job.notes = f"Failed to send: {e}"
+                    db.commit()
+                except Exception:
+                    db.rollback()
 
         if len(dispatched) == 0:
             return {

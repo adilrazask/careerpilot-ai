@@ -13,7 +13,11 @@ cleanup() {
     kill $(jobs -p) 2>/dev/null || true
     exit 0
 }
-trap cleanup SIGINT SIGTERM EXIT
+trap cleanup SIGINT SIGTERM
+
+# Free up ports if lingering from previous run
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 
 # 1. Start Backend in background
 echo "1. Starting Backend API & Autonomous Worker on port 8000..."
@@ -30,7 +34,7 @@ fi
 export PYTHONPATH=.
 export RUN_WORKER_IN_APP=true
 python3 -c "from app.database_init import init_db; init_db()"
-uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Wait for backend to be ready
@@ -43,7 +47,7 @@ echo "✅ Backend API is live at http://localhost:8000"
 # 2. Start Frontend in background
 echo "2. Starting Frontend Dashboard on port 5173..."
 cd "$ROOT_DIR/frontend"
-npm run dev -- --host &
+npm run dev -- --host --port 5173 &
 FRONTEND_PID=$!
 
 # Wait for frontend to be ready
