@@ -343,15 +343,7 @@ class DurableScheduler:
                         db.commit()
                         db.refresh(rv)
 
-                    if prior_app and prior_app.current_status in ["APPLICATION_READY", "APPROVED_BY_USER"]:
-                        app_rec = prior_app
-                        app_rec.unattended_approved = True
-                        app_rec.current_status = "APPROVED_BY_USER"
-                        if not app_rec.resume_version_id:
-                            app_rec.resume_version_id = rv.id
-                        if not app_rec.primary_recipient:
-                            app_rec.primary_recipient = contact.email
-                    else:
+                    if not prior_app:
                         # Create Application Record
                         app_rec = ApplicationRecord(
                             job_id=qj.id,
@@ -362,6 +354,14 @@ class DurableScheduler:
                             unattended_approved=True
                         )
                         db.add(app_rec)
+                    else:
+                        app_rec = prior_app
+                        app_rec.unattended_approved = True
+                        app_rec.current_status = "APPROVED_BY_USER"
+                        if not app_rec.resume_version_id:
+                            app_rec.resume_version_id = rv.id
+                        if not app_rec.primary_recipient:
+                            app_rec.primary_recipient = contact.email
                     db.commit()
                     db.refresh(app_rec)
 
