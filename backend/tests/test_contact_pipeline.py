@@ -29,7 +29,7 @@ def test_extract_from_jd_text_and_verify(pipeline_test_db):
         title="Operations Executive",
         company_name="Apex Logistics",
         original_url="https://apexlogistics.com/jobs/101",
-        description="Please send your CV directly to priya.sharma@apexlogistics.com for review.",
+        description="Please send your CV directly to hiring@apexlogistics.com for review.",
         is_seed=False
     )
     session.add(job)
@@ -40,7 +40,7 @@ def test_extract_from_jd_text_and_verify(pipeline_test_db):
         contact = ContactPipeline.find_and_verify_hr_contact_for_job(job, session)
 
     assert contact is not None
-    assert contact.email == "priya.sharma@apexlogistics.com"
+    assert contact.email == "hiring@apexlogistics.com"
     assert contact.source_url == "https://apexlogistics.com/jobs/101"
     assert contact.verification_status == "SOURCE_VERIFIED"
     assert contact.verification_method == "hunter_verified"

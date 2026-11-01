@@ -129,6 +129,10 @@ class EmailOutreachService:
         job = application.job
         contact_email = application.primary_recipient.strip()
 
+        # Strict anti-synthetic check: never allow sending to synthetic placeholder addresses
+        if any(b in contact_email.lower() for b in ["priya.sharma", "priya@", "fake@", ".fake"]):
+            raise ValueError(f"Application refused: Banned synthetic placeholder email '{contact_email}'. Only genuine employer HR contacts permitted.")
+
         # Check if dry_run mode is active
         provider_setting = os.environ.get("EMAIL_PROVIDER") or getattr(settings, "EMAIL_PROVIDER", "dry_run")
         is_dry_run = (provider_setting == "dry_run")

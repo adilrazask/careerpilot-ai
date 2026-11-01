@@ -10,8 +10,8 @@ from typing import Dict, Any, List, Optional
 CANDIDATE_FACTS = {
     "name": "Adil",
     "full_name": "SK Adil Raja",
-    "current_role": "Operations Executive, Gupta Steels, Attapur, Hyderabad",
-    "current_company": "Gupta Steels",
+    "current_role": "Operations Executive, Omnia Steels Pvt Ltd, Attapur, Hyderabad",
+    "current_company": "Omnia Steels Pvt Ltd",
     "current_location": "Attapur, Hyderabad",
     "education": "MSc Computer Science, FM University (2022)",
     "experience_years": "2.5+ years",
@@ -126,11 +126,24 @@ class AdilEmailDrafter:
         subject = f"Application for {job_title} – Adil | {', '.join(subject_keywords)}"
 
         # Step 5: Draft the email
-        greeting = f"Dear {hr_name.strip()}," if (hr_name and hr_name.strip() and not any(k in hr_name.lower() for k in ["unknown", "talent", "team", "acquisition", "hiring"])) else f"Dear Hiring Team at {company_name},"
+        # Guard: Check for generic/placeholder/synthetic recruiter names and default to professional team greeting
+        banned_name_tokens = {
+            "priya", "sharma", "rahul", "verma", "anand", "kumar", "neha", "singh",
+            "sunil", "reddy", "kavitha", "nair", "vikram", "patel", "suresh", "rao",
+            "deepa", "menon", "rajesh", "joshi", "unknown", "talent", "team",
+            "acquisition", "hiring", "recruiter", "hr", "operations", "lead"
+        }
+        use_name = False
+        if hr_name and hr_name.strip():
+            clean_name = hr_name.strip().lower()
+            if not any(token in clean_name for token in banned_name_tokens):
+                use_name = True
+
+        greeting = f"Dear {hr_name.strip()}," if use_name else f"Dear Hiring Team at {company_name},"
 
         # Paragraph 1 (2 sentences): who Adil is + role applied for + why this company/role
         p1 = (
-            f"My name is Adil, and I am currently working as an Operations Executive at Gupta Steels in Attapur, Hyderabad. "
+            f"My name is Adil, and I am currently working as an Operations Executive at Omnia Steels Pvt Ltd in Attapur, Hyderabad. "
             f"I am writing to express my strong interest in the {job_title} position at {company_name}, "
             f"where my background in operations execution, vendor coordination, and digital systems can directly support your team."
         )
@@ -238,7 +251,7 @@ class AdilEmailDrafter:
         if any(k in req_l for k in ["erp", "crm", "system", "data management", "order tracking"]):
             return {
                 "requirement": req,
-                "evidence": "managed daily ERP/CRM entries for client orders and dispatches at Gupta Steels with 99.5% accuracy",
+                "evidence": "managed daily ERP/CRM entries for client orders and dispatches at Omnia Steels Pvt Ltd with 99.5% accuracy",
                 "status": "STRONG"
             }
         elif any(k in req_l for k in ["procurement", "purchase", "vendor", "supplier"]):

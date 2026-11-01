@@ -170,7 +170,7 @@ def test_15_day_follow_up_cadence_scheduling(db):
     app_rec = ApplicationRecord(
         job_id=job.id,
         current_status="EMAIL_SENT",
-        primary_recipient="priya.sharma@schneiderelectric.com"
+        primary_recipient="talent.acquisition@schneiderelectric.com"
     )
     db.add(app_rec)
     db.commit()
@@ -215,7 +215,7 @@ def test_process_due_follow_up_sends_email_and_schedules_next_cycle(db):
     app_rec = ApplicationRecord(
         job_id=job.id,
         current_status="EMAIL_SENT",
-        primary_recipient="priya.sharma@mahindralogistics.com",
+        primary_recipient="talent.acquisition@mahindralogistics.com",
         thread_id="thread-mahindra-test-001"
     )
     db.add(app_rec)

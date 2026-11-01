@@ -119,7 +119,7 @@ class ResumeEngine:
         cover_letter = (
             f"Dear Hiring Team at {job.company_name},\n\n"
             f"I am writing to express my interest in the {job.title} position at {job.company_name}. "
-            f"With proven experience running ERP system management, CRM-based client retention, website deployment, and daily office administration at Gupta Steels/ Omnia Steels Pvt Ltd, combined with an MSc in Computer Science, I bring both operational rigor and technical capability to your team.\n\n"
+            f"With proven experience running ERP system management, CRM-based client retention, website deployment, and daily office administration at Omnia Steels Pvt Ltd, combined with an MSc in Computer Science, I bring both operational rigor and technical capability to your team.\n\n"
             f"In my current role, I cut turnaround time on client requests by 90%, reduced ERP data discrepancies by 60-70%, and improved on-time payment collection by 70% by actively managing 50+ key accounts. I am known for owning operational workflows end-to-end rather than escalating them.\n\n"
             f"The opportunity to bring my operational discipline, problem-solving mindset, and dedication to {job.company_name} aligns closely with my career goals. I have attached my resume detailing my factual background and achievements.\n\n"
             f"Thank you for your time and consideration. I look forward to speaking with you.\n\n"

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.models import ApplicationRecord, EmailMessage
 
 IST_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
-DAILY_SEND_CAP = 15
+DAILY_SEND_CAP = 100
 MIN_SEND_GAP_SECONDS = 180 # 3 minutes
 MAX_SEND_GAP_SECONDS = 480 # 8 minutes
 

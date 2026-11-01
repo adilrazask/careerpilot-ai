@@ -56,7 +56,7 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
     try {
       const data = await api.getApplicationDraft(jobId);
       setDraftData(data);
-      const defaultRec = data.recipient || (job ? `priya.sharma@${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15)}.com` : '');
+      const defaultRec = (data.recipient && !data.recipient.toLowerCase().includes('priya.sharma')) ? data.recipient : '';
       setDraftRecipient(defaultRec);
       setDraftSubject(data.subject || `Application for ${job?.title || 'Role'} – Adil | Operations, ERP`);
       setDraftBody(data.body || '');
@@ -132,8 +132,11 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
       await fetchJobs();
       setCurrentPage(1);
       if (res && typeof res.leads_added === 'number') {
-        setSyncMessage(`Live discovery complete! Found ${res.leads_found || 0} vacancies across portals and added ${res.leads_added} new genuine opportunities.`);
-        setTimeout(() => setSyncMessage(null), 6000);
+        const dispatchNote = res.auto_dispatched && res.auto_dispatched > 0
+          ? ` and automatically dispatched ${res.auto_dispatched} application(s) with your verified resume PDF!`
+          : '.';
+        setSyncMessage(`Live discovery complete! Found ${res.leads_found || 0} vacancies across portals and added ${res.leads_added} new genuine opportunities${dispatchNote}`);
+        setTimeout(() => setSyncMessage(null), 8000);
       }
     } catch (err: any) {
       console.error(err);
@@ -633,7 +636,7 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                   Personalised Job Application Email
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Strictly grounded in candidate facts (Gupta Steels, MSc CS, ERP/CRM, 90% TAT) + JD analysis.
+                  Strictly grounded in candidate facts (Omnia Steels Pvt Ltd, MSc CS, ERP/CRM, 90% TAT) + JD analysis.
                 </p>
               </div>
               <button
@@ -721,7 +724,7 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">Email Body (150-200 Words - Editable) *</label>
-                    <span className="text-[10px] text-slate-400 font-normal">Candidate facts: Gupta Steels & MSc CS</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Candidate facts: Omnia Steels Pvt Ltd & MSc CS</span>
                   </div>
                   <textarea
                     rows={9}

@@ -30,6 +30,6 @@ def run_manual_worker_cycle(db: Session = Depends(get_db)):
     return res
 
 @router.post("/dispatch-batch")
-def dispatch_batch(max_count: int = 10, force: bool = False, db: Session = Depends(get_db)):
-    """One-click execution: dispatches prepared applications up to daily limit (max 10) respecting 10am-6pm IST."""
+def dispatch_batch(max_count: int = 100, force: bool = False, db: Session = Depends(get_db)):
+    """One-click execution: dispatches prepared applications up to daily limit (max 100) respecting 10am-6pm IST."""
     return DurableScheduler.dispatch_prepared_batch(db, max_count=max_count, force=force)

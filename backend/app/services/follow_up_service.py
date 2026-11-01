@@ -66,7 +66,7 @@ class FollowUpService:
                     f"I hope you’re having a great week.\n\n"
                     f"I wanted to quickly check in regarding the {title} position for which I submitted my application. "
                     f"I remain very interested in the role and confident that my background in ERP systems, operations "
-                    f"coordination, and client workflow tracking at Gupta Steels will be an immediate asset to your operations.\n\n"
+                    f"coordination, and client workflow tracking at Omnia Steels Pvt Ltd will be an immediate asset to your operations.\n\n"
                     f"I’ve re-attached my tailored resume for quick reference. Please let me know if you need any additional details or references.\n\n"
                     f"Best regards,\n\n"
                     f"{candidate_name}\n"

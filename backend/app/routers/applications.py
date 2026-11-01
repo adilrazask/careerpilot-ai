@@ -149,8 +149,8 @@ def send_manual_application_email(payload: ManualSendRequest, db: Session = Depe
                 job_id=job.id,
                 version_name="v1-verified-ats",
                 headline=f"Operations Executive — {job.title}",
-                summary="Operations Executive with 2.5+ years experience in Gupta Steels, Attapur, Hyderabad.",
-                full_text="Operations Executive with Gupta Steels",
+                summary="Operations Executive with 2.5+ years experience in Omnia Steels Pvt Ltd, Attapur, Hyderabad.",
+                full_text="Operations Executive with Omnia Steels Pvt Ltd",
                 pdf_path="./data/resumes/SK_Adil_Raja_Resume.pdf"
             )
             db.add(rv)

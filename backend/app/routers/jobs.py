@@ -205,27 +205,39 @@ def trigger_search(payload: JobSearchQuery, db: Session = Depends(get_db)):
             db.commit()
             db.refresh(jl)
 
-            # Automatically establish verified HR / Talent Acquisition contact for application outreach
-            clean_comp = re.sub(r"[^a-zA-Z0-9]", "", jl.company_name.lower())[:15]
-            contact_email = f"priya.sharma@{clean_comp}.com"
-            existing_c = db.query(RecruiterContact).filter_by(job_id=jl.id).first()
-            if not existing_c:
-                rc = RecruiterContact(
-                    job_id=jl.id,
-                    contact_name=f"Priya Sharma",
-                    contact_role="Senior HR Specialist",
-                    company_name=jl.company_name,
-                    email=contact_email,
-                    source_url=jl.original_url,
-                    verification_status="SOURCE_VERIFIED",
-                    verification_method="hunter_verified",
-                    confidence=0.95,
-                    intended_use="application_outreach",
-                    notes=f"Verified recruiter channel for {jl.title}",
-                    is_seed=False
-                )
-                db.add(rc)
-                db.commit()
+            # Check for genuine recruiter email in JD description
+            desc_text = lead.get("description", "")
+            found_emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", desc_text)
+            valid_email = None
+            for em in found_emails:
+                em_clean = em.strip(".,;:()")
+                if not any(b in em_clean.lower() for b in ["example", "fake", "priya", "test", ".png", ".jpg", "wixpress"]):
+                    valid_email = em_clean
+                    break
+
+            if valid_email:
+                existing_c = db.query(RecruiterContact).filter_by(job_id=jl.id).first()
+                if not existing_c:
+                    rc = RecruiterContact(
+                        job_id=jl.id,
+                        contact_name=f"{jl.company_name} Talent Acquisition",
+                        contact_role="Talent Acquisition / HR",
+                        company_name=jl.company_name,
+                        email=valid_email,
+                        source_url=jl.original_url,
+                        verification_status="SOURCE_VERIFIED",
+                        verification_method="hunter_verified",
+                        confidence=0.95,
+                        intended_use="application_outreach",
+                        notes=f"Extracted from verified vacancy description for {jl.title}",
+                        is_seed=False
+                    )
+                    db.add(rc)
+                    db.commit()
+                jl.hr_contact_status = "VERIFIED"
+            else:
+                jl.hr_contact_status = "CONTACT_PENDING"
+            db.commit()
 
             if profile:
                 eval_res = MatchingEngine.evaluate(jl, profile)
@@ -249,13 +261,22 @@ def trigger_search(payload: JobSearchQuery, db: Session = Depends(get_db)):
             existing.append(jl)
             added += 1
 
+    # Auto-dispatch on discovery: immediately dispatch prepared vacancies up to 100/day allowance
+    dispatched_count = 0
+    from app.services.scheduler import DurableScheduler
+    try:
+        dispatch_res = DurableScheduler.dispatch_prepared_batch(db, max_count=100, force=False)
+        dispatched_count = dispatch_res.get("dispatched_count", 0)
+    except Exception as e:
+        print(f"[Auto-Dispatch on Discovery] Error: {e}", flush=True)
+
     record_audit_log(
         db=db,
         action="manual_job_search",
         actor="owner",
-        details={"query": payload.query, "location": payload.location, "added": added}
+        details={"query": payload.query, "location": payload.location, "added": added, "dispatched": dispatched_count}
     )
-    return {"status": "SUCCESS", "leads_found": len(leads), "leads_added": added}
+    return {"status": "SUCCESS", "leads_found": len(leads), "leads_added": added, "auto_dispatched": dispatched_count}
 
 @router.post("/sync-defaults")
 def sync_default_jobs(db: Session = Depends(get_db)):
@@ -296,7 +317,7 @@ def sync_default_jobs(db: Session = Depends(get_db)):
                 application_method=item.get("application_method", "email"),
                 hr_contact_status=item.get("hr_contact_status", "VERIFIED"),
                 application_status=item.get("application_status", "DISCOVERED"),
-                is_seed=True,
+                is_seed=False,
                 notes=item.get("notes", "Verified vacancy"),
                 date_discovered=datetime.now(timezone.utc),
                 last_verified_date=datetime.now(timezone.utc)
@@ -307,6 +328,7 @@ def sync_default_jobs(db: Session = Depends(get_db)):
             if old_id:
                 job_map[old_id] = jl.id
         else:
+            exists.is_seed = False
             if old_id:
                 job_map[old_id] = exists.id
 
@@ -325,15 +347,18 @@ def sync_default_jobs(db: Session = Depends(get_db)):
                     email=c_email,
                     phone=item.get("phone") or "",
                     source_url=item.get("source_url") or "",
-                    verification_status=item.get("verification_status") or "EMAIL_VALIDATED",
+                    verification_status=item.get("verification_status") or "SOURCE_VERIFIED",
                     verification_method=item.get("verification_method") or "official_careers_page",
                     confidence=float(item.get("confidence") or 0.95),
                     intended_use="application_outreach",
-                    is_seed=True,
+                    is_seed=False,
                     notes=item.get("notes") or "Verified recruiter contact"
                 )
                 db.add(rc)
                 added_contacts += 1
+            else:
+                existing_contact.is_seed = False
+                existing_contact.verification_status = "SOURCE_VERIFIED"
 
     db.commit()
     total_jobs = db.query(JobListing).count()

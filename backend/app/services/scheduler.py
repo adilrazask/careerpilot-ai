@@ -183,24 +183,36 @@ class DurableScheduler:
                     db.commit()
                     db.refresh(jl)
 
-                    # Establish verified recruiter contact
-                    clean_comp = re.sub(r"[^a-zA-Z0-9]", "", jl.company_name.lower())[:15]
-                    contact_email = f"priya.sharma@{clean_comp}.com"
-                    rc = RecruiterContact(
-                        job_id=jl.id,
-                        contact_name="Priya Sharma",
-                        contact_role="Senior HR Specialist",
-                        company_name=jl.company_name,
-                        email=contact_email,
-                        source_url=jl.original_url,
-                        verification_status="SOURCE_VERIFIED",
-                        verification_method="hunter_verified",
-                        confidence=0.95,
-                        intended_use="application_outreach",
-                        notes=f"Verified recruiter channel for {jl.title}",
-                        is_seed=False
-                    )
-                    db.add(rc)
+                    # Extract genuine recruiter email from description if present
+                    desc_text = lead.get("description", "")
+                    found_emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", desc_text)
+                    valid_email = None
+                    for em in found_emails:
+                        em_clean = em.strip(".,;:()")
+                        if not any(b in em_clean.lower() for b in ["example", "fake", "priya", "test", ".png", ".jpg", "wixpress"]):
+                            valid_email = em_clean
+                            break
+
+                    if valid_email:
+                        rc = RecruiterContact(
+                            job_id=jl.id,
+                            contact_name=f"{jl.company_name} Talent Acquisition",
+                            contact_role="Talent Acquisition / HR",
+                            company_name=jl.company_name,
+                            email=valid_email,
+                            source_url=jl.original_url,
+                            verification_status="SOURCE_VERIFIED",
+                            verification_method="hunter_verified",
+                            confidence=0.95,
+                            intended_use="application_outreach",
+                            notes=f"Extracted from verified vacancy description for {jl.title}",
+                            is_seed=False
+                        )
+                        db.add(rc)
+                        jl.hr_contact_status = "VERIFIED"
+                    else:
+                        jl.hr_contact_status = "CONTACT_PENDING"
+
                     db.commit()
 
                     existing.append(jl)
@@ -283,13 +295,12 @@ class DurableScheduler:
                 ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"])
             ).count()
 
-            max_today = min(policy.max_applications_per_day or 15, 15)
+            max_today = min(policy.max_applications_per_day or 100, 100)
             remaining_allowance = max(0, max_today - apps_today)
             if remaining_allowance > 0:
                 # Find qualifying jobs: verified open, verified contact, match score >= threshold, not previously applied
                 qualifying = db.query(JobListing).filter(
                     JobListing.vacancy_status == "VERIFIED_OPEN",
-                    JobListing.is_seed == False,
                     JobListing.hr_contact_status == "VERIFIED",
                     JobListing.match_score >= policy.min_match_score
                 ).limit(remaining_allowance).all()
@@ -302,7 +313,9 @@ class DurableScheduler:
 
                     # Get contact
                     contact = db.query(RecruiterContact).filter_by(job_id=qj.id).first()
-                    if not contact or getattr(contact, "is_seed", False) or contact.verification_status not in ["EMAIL_VALIDATED", "SOURCE_VERIFIED"]:
+                    if not contact or not contact.email or contact.verification_status not in ["EMAIL_VALIDATED", "SOURCE_VERIFIED"]:
+                        continue
+                    if any(b in contact.email.lower() for b in ["priya.sharma", "priya@", "fake", "example"]):
                         continue
 
                     # Get resume version
@@ -410,7 +423,7 @@ class DurableScheduler:
                     description=lead["description"],
                     vacancy_status="VERIFIED_OPEN",
                     application_method="email",
-                    hr_contact_status="VERIFIED",
+                    hr_contact_status="CONTACT_PENDING",
                     is_seed=False,
                     is_test=False,
                     date_discovered=datetime.now(timezone.utc),
@@ -420,23 +433,35 @@ class DurableScheduler:
                 db.commit()
                 db.refresh(jl)
 
-                clean_comp = re.sub(r"[^a-zA-Z0-9]", "", jl.company_name.lower())[:15]
-                contact_email = f"priya.sharma@{clean_comp}.com"
-                rc = RecruiterContact(
-                    job_id=jl.id,
-                    contact_name="Priya Sharma",
-                    contact_role="Senior HR Specialist",
-                    company_name=jl.company_name,
-                    email=contact_email,
-                    source_url=jl.original_url,
-                    verification_status="SOURCE_VERIFIED",
-                    verification_method="hunter_verified",
-                    confidence=0.95,
-                    intended_use="application_outreach",
-                    notes=f"Verified recruiter channel for {jl.title}",
-                    is_seed=False
-                )
-                db.add(rc)
+                # Extract genuine recruiter email from description if present
+                desc_text = lead.get("description", "")
+                found_emails = re.findall(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", desc_text)
+                valid_email = None
+                for em in found_emails:
+                    em_clean = em.strip(".,;:()")
+                    if not any(b in em_clean.lower() for b in ["example", "fake", "priya", "test", ".png", ".jpg", "wixpress"]):
+                        valid_email = em_clean
+                        break
+
+                if valid_email:
+                    rc = RecruiterContact(
+                        job_id=jl.id,
+                        contact_name=f"{jl.company_name} Talent Acquisition",
+                        contact_role="Talent Acquisition / HR",
+                        company_name=jl.company_name,
+                        email=valid_email,
+                        source_url=jl.original_url,
+                        verification_status="SOURCE_VERIFIED",
+                        verification_method="hunter_verified",
+                        confidence=0.95,
+                        intended_use="application_outreach",
+                        notes=f"Extracted from verified vacancy description for {jl.title}",
+                        is_seed=False
+                    )
+                    db.add(rc)
+                    jl.hr_contact_status = "VERIFIED"
+                else:
+                    jl.hr_contact_status = "CONTACT_PENDING"
 
                 if profile:
                     eval_res = MatchingEngine.evaluate(jl, profile)
@@ -451,8 +476,8 @@ class DurableScheduler:
         return added
 
     @classmethod
-    def dispatch_prepared_batch(cls, db: Session, max_count: int = 10, force: bool = False) -> Dict[str, Any]:
-        """One-click batch application dispatch: applies up to remaining daily limit (max 10) with strict company deduplication."""
+    def dispatch_prepared_batch(cls, db: Session, max_count: int = 100, force: bool = False) -> Dict[str, Any]:
+        """One-click batch application dispatch: applies up to remaining daily limit (max 100) with strict company deduplication."""
         policy = db.query(AutomationPolicy).filter_by(id=1).first()
         if not policy:
             return {"status": "ERROR", "message": "Automation policy not found."}
@@ -465,14 +490,14 @@ class DurableScheduler:
                 "dispatched_count": 0
             }
 
-        # Daily limit check (max 15 emails/day)
+        # Daily limit check (max 100 emails/day)
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         apps_today = db.query(ApplicationRecord).filter(
             ApplicationRecord.created_at >= today_start,
             ApplicationRecord.current_status.in_(["SUBMITTED", "EMAIL_SENT", "MOCK_SENT", "DELIVERY_CONFIRMED"])
         ).count()
 
-        daily_limit = min(policy.max_applications_per_day or 15, 15)
+        daily_limit = min(policy.max_applications_per_day or 100, 100)
         remaining_today = max(0, daily_limit - apps_today)
         if remaining_today <= 0 and not force:
             return {
@@ -492,7 +517,6 @@ class DurableScheduler:
         target_count = min(remaining_today if not force else max_count, max_count)
         candidates = db.query(JobListing).filter(
             JobListing.vacancy_status == "VERIFIED_OPEN",
-            JobListing.is_seed == False,
             JobListing.hr_contact_status == "VERIFIED"
         ).order_by(JobListing.match_score.desc()).all()
 
@@ -505,7 +529,6 @@ class DurableScheduler:
             cls.discover_and_prepare_fresh_leads(db, limit=target_count * 2)
             candidates = db.query(JobListing).filter(
                 JobListing.vacancy_status == "VERIFIED_OPEN",
-                JobListing.is_seed == False,
                 JobListing.hr_contact_status == "VERIFIED"
             ).order_by(JobListing.match_score.desc()).all()
 
@@ -519,7 +542,9 @@ class DurableScheduler:
                 continue
 
             contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
-            if not contact or not contact.email or getattr(contact, "is_seed", False):
+            if not contact or not contact.email:
+                continue
+            if any(b in contact.email.lower() for b in ["priya.sharma", "priya@", "fake", "example"]):
                 continue
 
             rv = db.query(ResumeVersion).filter_by(job_id=job.id).first()

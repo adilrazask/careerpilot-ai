@@ -37,8 +37,8 @@ def followup_test_db():
     contact = RecruiterContact(
         job_id=job.id,
         company_name="Apex Logistics",
-        contact_name="Priya Sharma",
-        email="priya.sharma@apexlogistics.com",
+        contact_name="Recruiter Lead",
+        email="recruiter@apexlogistics.com",
         source_url="https://apexlogistics.com/team",
         verification_method="hunter_verified",
         verification_status="SOURCE_VERIFIED",
@@ -51,7 +51,7 @@ def followup_test_db():
         job_id=job.id,
         current_status="APPROVED_BY_USER",
         submission_method="email",
-        primary_recipient="priya.sharma@apexlogistics.com",
+        primary_recipient="recruiter@apexlogistics.com",
         thread_id="thread-xyz-12345",
         external_confirmation_id="msg-initial-1"
     )
@@ -109,7 +109,7 @@ def test_follow_up_cancelled_on_thread_reply(followup_test_db):
     # Simulate recruiter response in Gmail thread
     mock_messages = [
         {"id": "msg-1", "payload": {"headers": [{"name": "From", "value": "adilrazask@gmail.com"}]}},
-        {"id": "msg-2", "payload": {"headers": [{"name": "From", "value": "priya.sharma@apexlogistics.com"}, {"name": "Subject", "value": "Re: Application"}]}}
+        {"id": "msg-2", "payload": {"headers": [{"name": "From", "value": "recruiter@apexlogistics.com"}, {"name": "Subject", "value": "Re: Application"}]}}
     ]
 
     with patch("app.services.gmail_service.GmailService.check_thread_messages", return_value=mock_messages):

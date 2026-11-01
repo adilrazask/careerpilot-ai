@@ -32,6 +32,14 @@ def validate_contact_rules(
     if not email or "@" not in email:
         return False, "Missing or invalid email address format."
 
+    # 0. Anti-synthetic / anti-fake guard
+    if "priya.sharma" in email or "priya@" in email or "fake@" in email or ".fake" in email:
+        return False, f"Blocked synthetic placeholder email address: '{email}'"
+
+    contact_name = (getattr(contact, "contact_name", "") or "").lower()
+    if "priya sharma" in contact_name:
+        return False, f"Blocked placeholder contact name: '{contact.contact_name}'"
+
     local_part, domain = email.split("@", 1)
     local_part_clean = local_part.strip().lower()
 

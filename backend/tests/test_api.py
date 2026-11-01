@@ -70,9 +70,9 @@ def test_job_and_tailoring_pipeline(client):
     contact_payload = {
         "job_id": job_id,
         "company_name": "Apex Supply Logistics",
-        "contact_name": "Priya Sharma",
+        "contact_name": "Talent Lead",
         "contact_role": "Head of Talent Acquisition",
-        "email": "priya.sharma@apexsupply.com",
+        "email": "talent.lead@apexsupply.com",
         "source_url": "https://apexsupply.example.com/team"
     }
     contact_res = client.post("/api/contacts/create", json=contact_payload)
@@ -120,7 +120,7 @@ def test_send_manual_application_email(client):
     job_id = target_job["id"]
 
     import uuid
-    unique_recip = f"priya.sharma.{uuid.uuid4().hex[:6]}@manualtest.com"
+    unique_recip = f"recruiter.{uuid.uuid4().hex[:6]}@manualtest.com"
     send_res = client.post("/api/applications/send-manual", json={
         "job_id": job_id,
         "recipient_email": unique_recip,

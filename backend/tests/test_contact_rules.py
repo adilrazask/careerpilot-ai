@@ -60,7 +60,7 @@ def test_blocked_portal_domains():
 
 def test_require_source_url():
     rc = RecruiterContact(
-        email="priya.sharma@apexsupply.com",
+        email="talent.manager@apexsupply.com",
         company_name="Apex Supply",
         source_url="", # Missing source URL
         verification_method="hunter_verified",
@@ -72,7 +72,7 @@ def test_require_source_url():
 
 def test_mx_only_rejected():
     rc = RecruiterContact(
-        email="priya.sharma@apexsupply.com",
+        email="talent.manager@apexsupply.com",
         company_name="Apex Supply",
         source_url="https://apexsupply.com/team",
         verification_method="mx_check", # MX only
@@ -85,7 +85,7 @@ def test_mx_only_rejected():
 def test_real_verifier_hunter_zerobounce_accepted():
     for method in ["hunter_verified", "zerobounce_verified", "apollo_ai_verified"]:
         rc = RecruiterContact(
-            email="priya.sharma@apexsupply.com",
+            email="talent.manager@apexsupply.com",
             company_name="Apex Supply",
             source_url="https://apexsupply.com/team",
             verification_method=method,
@@ -94,3 +94,16 @@ def test_real_verifier_hunter_zerobounce_accepted():
         is_valid, reason = validate_contact_rules(rc, company_employee_count=200)
         assert is_valid is True
         assert "Contact passed all verification rules" in reason
+
+def test_synthetic_placeholder_blocked():
+    rc = RecruiterContact(
+        email="priya.sharma@apexsupply.com",
+        contact_name="Priya Sharma",
+        company_name="Apex Supply",
+        source_url="https://apexsupply.com/team",
+        verification_method="hunter_verified",
+        verification_status="SOURCE_VERIFIED"
+    )
+    is_valid, reason = validate_contact_rules(rc)
+    assert is_valid is False
+    assert "Blocked synthetic placeholder" in reason

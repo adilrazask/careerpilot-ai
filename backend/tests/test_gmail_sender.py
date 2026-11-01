@@ -43,8 +43,8 @@ def sender_test_db():
     contact = RecruiterContact(
         job_id=job.id,
         company_name="Apex Logistics",
-        contact_name="Priya Sharma",
-        email="priya.sharma@apexlogistics.com",
+        contact_name="Talent Lead",
+        email="talent.lead@apexlogistics.com",
         source_url="https://apexlogistics.com/team",
         verification_method="hunter_verified",
         verification_status="SOURCE_VERIFIED",
@@ -62,7 +62,7 @@ def sender_test_db():
         job_id=job.id,
         current_status="APPROVED_BY_USER",
         submission_method="email",
-        primary_recipient="priya.sharma@apexlogistics.com"
+        primary_recipient="talent.lead@apexlogistics.com"
     )
     session.add(app)
     session.commit()

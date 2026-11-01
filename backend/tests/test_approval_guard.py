@@ -68,7 +68,7 @@ def test_approved_application_accepted(approval_test_db):
     assert is_ok is True
     assert "verified" in reason.lower()
 
-def test_daily_send_cap_15(approval_test_db):
+def test_daily_send_cap_enforced(approval_test_db):
     session = approval_test_db
     app = ApplicationRecord(
         id=3,
@@ -78,9 +78,9 @@ def test_daily_send_cap_15(approval_test_db):
     )
     session.add(app)
 
-    # Insert 15 sent emails today
+    # Insert DAILY_SEND_CAP sent emails today
     now = datetime.now(timezone.utc)
-    for i in range(15):
+    for i in range(DAILY_SEND_CAP):
         msg = EmailMessage(
             application_id=app.id,
             direction="outbound",
@@ -90,7 +90,7 @@ def test_daily_send_cap_15(approval_test_db):
             subject="Application",
             body_text="Body",
             provider="smtp",
-            sent_or_received_at=now - timedelta(seconds=(15 - i) * 5)
+            sent_or_received_at=now - timedelta(seconds=(DAILY_SEND_CAP - i) * 5)
         )
         session.add(msg)
     session.commit()

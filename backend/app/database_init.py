@@ -145,7 +145,7 @@ def init_db(db: Session = None):
                 current_location="Attapur, Hyderabad, India",
                 total_experience_years=2.5,
                 summary=(
-                    "Operations Executive at Gupta Steels, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
+                    "Operations Executive at Omnia Steels Pvt Ltd, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
                     "Experienced in end-to-end ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics dispatch, "
                     "procurement, vendor negotiations, and finance support. Retail trader in Indian equities, derivatives, and forex. "
                     "Fast learner capable of mastering new enterprise tools within a week."
@@ -154,7 +154,7 @@ def init_db(db: Session = None):
                 preferred_contact_method="email",
                 verified_facts={
                     "confirmed_experience_years": 2.5,
-                    "current_company": "Gupta Steels",
+                    "current_company": "Omnia Steels Pvt Ltd",
                     "current_role": "Operations Executive",
                     "current_location": "Attapur, Hyderabad",
                     "highest_education": "MSc Computer Science, FM University (2022)",
@@ -173,14 +173,14 @@ def init_db(db: Session = None):
             profile.current_location = "Attapur, Hyderabad, India"
             profile.total_experience_years = 2.5
             profile.summary = (
-                "Operations Executive at Gupta Steels, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
+                "Operations Executive at Omnia Steels Pvt Ltd, Attapur, Hyderabad with an MSc in Computer Science (FM University, 2022). "
                 "Experienced in end-to-end ERP/CRM management, export documentation (ICEGATE, E-Way Bills), logistics dispatch, "
                 "procurement, vendor negotiations, and finance support. Retail trader in Indian equities, derivatives, and forex. "
                 "Fast learner capable of mastering new enterprise tools within a week."
             )
             profile.verified_facts = {
                 "confirmed_experience_years": 2.5,
-                "current_company": "Gupta Steels",
+                "current_company": "Omnia Steels Pvt Ltd",
                 "current_role": "Operations Executive",
                 "current_location": "Attapur, Hyderabad",
                 "highest_education": "MSc Computer Science, FM University (2022)",
@@ -195,12 +195,17 @@ def init_db(db: Session = None):
             EmploymentHistory.company.ilike("%Apex%") | EmploymentHistory.company.ilike("%TransLogix%")
         ).delete(synchronize_session=False)
 
+        # Update existing employment history to Omnia Steels Pvt Ltd
+        for eh in db.query(EmploymentHistory).filter(EmploymentHistory.company.ilike("%Gupta Steels%")).all():
+            eh.company = "Omnia Steels Pvt Ltd"
+        db.commit()
+
         # Ensure verified employment history exists
-        gupta_job = db.query(EmploymentHistory).filter(EmploymentHistory.company.ilike("%Gupta Steels%")).first()
-        if not gupta_job:
-            gupta_job = EmploymentHistory(
+        omnia_job = db.query(EmploymentHistory).filter(EmploymentHistory.company.ilike("%Omnia Steels%")).first()
+        if not omnia_job:
+            omnia_job = EmploymentHistory(
                 profile_id=profile.id,
-                company="Gupta Steels",
+                company="Omnia Steels Pvt Ltd",
                 job_title="Operations Executive",
                 location="Attapur, Hyderabad",
                 start_date="2022-07",
@@ -218,7 +223,7 @@ def init_db(db: Session = None):
                 ],
                 tools_used=["ERP System", "CRM", "ICEGATE", "E-Way Bill Portal", "Tally Prime", "MS Excel"]
             )
-            db.add(gupta_job)
+            db.add(omnia_job)
             db.commit()
 
         # Remove legacy mock education
@@ -282,10 +287,10 @@ def init_db(db: Session = None):
                 enable_unattended_portal_applications=False,
                 enable_auto_follow_ups=False,
                 enable_response_monitoring=True,
-                max_applications_per_day=5,
+                max_applications_per_day=100,
                 max_applications_per_company_per_month=2,
                 min_match_score=65,
-                max_emails_per_hour=10,
+                max_emails_per_hour=25,
                 search_interval_minutes=240,
                 follow_up_interval_days=15,
                 max_follow_up_cycles=3,
@@ -299,6 +304,31 @@ def init_db(db: Session = None):
             )
             db.add(policy)
             db.commit()
+        else:
+            if getattr(policy, "max_applications_per_day", 0) < 100:
+                policy.max_applications_per_day = 100
+                db.commit()
+
+        # Purge any synthetic or fake recruiter contacts from the database
+        fake_contacts = db.query(RecruiterContact).filter(
+            (RecruiterContact.email.ilike("%priya.sharma%")) |
+            (RecruiterContact.contact_name.ilike("%Priya Sharma%")) |
+            (RecruiterContact.email.ilike("%@*.fake%")) |
+            (RecruiterContact.email.ilike("%rahul.verma@godrejconsum%"))
+        ).all()
+        for fc in fake_contacts:
+            # If a job was linked, set its status back to CONTACT_PENDING
+            if fc.job_id:
+                job_ref = db.query(JobListing).filter_by(id=fc.job_id).first()
+                if job_ref:
+                    job_ref.hr_contact_status = "CONTACT_PENDING"
+            db.delete(fc)
+        db.commit()
+
+        # Mark all verified vacancies as active/dispatchable (is_seed = False)
+        db.query(JobListing).filter(JobListing.is_test == False).update({"is_seed": False}, synchronize_session=False)
+        db.query(RecruiterContact).filter(RecruiterContact.is_test == False).update({"is_seed": False}, synchronize_session=False)
+        db.commit()
 
         # 4. Default Job Sources
         sources_data = [

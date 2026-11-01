@@ -314,7 +314,7 @@ export const AutopilotPolicyPage: React.FC = () => {
                     `Dear Hiring Team at {company},\n\n` +
                     `I hope this email finds you well.\n\n` +
                     `I am writing to formally submit my application for the {title} position at {company}.\n\n` +
-                    `With over 2.5 years of hands-on operations experience at Gupta Steels / Omnia Steels Pvt Ltd in Hyderabad, I have been directly responsible for:\n` +
+                    `With over 2.5 years of hands-on operations experience at Omnia Steels Pvt Ltd in Hyderabad, I have been directly responsible for:\n` +
                     `• Operational Systems & ERP: Managing daily ERP data integrity, CRM client follow-ups, and dispatch documentation.\n` +
                     `• Turnaround Time Reduction: Streamlining office procedures and cutting turnaround times on client requests by 90%.\n` +
                     `• Technical & Data Rigor: Leveraging an MSc in Computer Science for accurate Excel reporting, database integrity, and operational execution.\n\n` +

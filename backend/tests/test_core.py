@@ -280,8 +280,8 @@ def test_application_idempotency(test_db):
     contact = RecruiterContact(
         job_id=job.id,
         company_name="Apex Global",
-        contact_name="Priya Sharma",
-        email="priya.sharma@apex-global-valid.com",
+        contact_name="Talent Lead",
+        email="talent.lead@apex-global-valid.com",
         source_url="https://apex-global-valid.com/team",
         verification_method="hunter_verified",
         verification_status="SOURCE_VERIFIED"
@@ -294,7 +294,7 @@ def test_application_idempotency(test_db):
         job_id=job.id,
         current_status="APPROVED_BY_USER",
         submission_method="email",
-        primary_recipient="priya.sharma@apex-global-valid.com"
+        primary_recipient="talent.lead@apex-global-valid.com"
     )
     test_db.add(app)
     rv = ResumeVersion(id=1, profile_id=1, job_id=job.id, version_name="v1", full_text="Resume text")

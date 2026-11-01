@@ -62,11 +62,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
   const handleOneClickBatch = async () => {
     setLoading(true);
     try {
-      const res = await api.dispatchBatch(10, false);
+      const res = await api.dispatchBatch(100, false);
       if (res.status === 'PAUSED_HOURS') {
         const force = window.confirm(`${res.message}\n\nWould you like to Force Dispatch now regardless of hours?`);
         if (force) {
-          const forceRes = await api.dispatchBatch(10, true);
+          const forceRes = await api.dispatchBatch(100, true);
           if (forceRes.dispatched_count > 0) {
             alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!\nRemaining daily allowance: ${forceRes.remaining_daily_allowance}`);
           } else {
@@ -124,10 +124,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
             onClick={handleOneClickBatch}
             disabled={loading}
             className="px-4 py-2 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-900 transition shadow-md flex items-center gap-1.5"
-            title="Single-Click Apply: Sends to up to 10 prepared jobs using your exact resume PDF"
+            title="Single-Click Apply: Sends to up to 100 prepared jobs using your exact resume PDF"
           >
             <Zap className="h-3.5 w-3.5 text-blue-600 fill-blue-600" />
-            <span>One-Click Apply (Max 10)</span>
+            <span>One-Click Apply (Max 100)</span>
           </button>
           <button
             onClick={() => handleAction(api.resumeAll)}
@@ -172,7 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400">Daily Mail Cap</p>
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Max 10 Emails / Day</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Max 100 Emails / Day</p>
             <p className="text-[10px] text-slate-500">Protects sender domain reputation</p>
           </div>
         </div>
