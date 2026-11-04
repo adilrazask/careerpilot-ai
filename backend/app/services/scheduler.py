@@ -591,6 +591,7 @@ class DurableScheduler:
                 db.add(prior_app)
             else:
                 prior_app.current_status = "APPROVED_BY_USER"
+                prior_app.primary_recipient = contact.email
                 prior_app.unattended_approved = True
 
             db.commit()

@@ -130,8 +130,20 @@ class EmailOutreachService:
         contact_email = application.primary_recipient.strip()
 
         # Strict anti-synthetic check: never allow sending to synthetic placeholder addresses
-        if any(b in contact_email.lower() for b in ["priya.sharma", "priya@", "fake@", ".fake"]):
+        if any(b in contact_email.lower() for b in ["priya.sharma", "priya@", "fake@", ".fake", "tatasteeldow", "sailcommerci", "example"]):
             raise ValueError(f"Application refused: Banned synthetic placeholder email '{contact_email}'. Only genuine employer HR contacts permitted.")
+
+        # Check domain existence via DNS MX records before attempting transmission (prevent mailer-daemon bounces)
+        is_in_test = bool(os.environ.get("PYTEST_CURRENT_TEST")) or ("pytest" in sys.modules)
+        domain = contact_email.split("@")[-1].strip().lower()
+        if not is_in_test and not is_dry_run:
+            try:
+                import dns.resolver
+                dns.resolver.resolve(domain, "MX", lifetime=5)
+            except Exception as mx_err:
+                err_str = str(mx_err).lower()
+                if "nxdomain" in err_str or "noanswer" in err_str or "does not exist" in err_str:
+                    raise ValueError(f"Application refused: Recipient domain '{domain}' does not exist (DNS NXDOMAIN). Prevented sending to invalid address '{contact_email}'.")
 
         # Check if dry_run mode is active
         provider_setting = os.environ.get("EMAIL_PROVIDER") or getattr(settings, "EMAIL_PROVIDER", "dry_run")
