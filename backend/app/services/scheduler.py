@@ -21,8 +21,8 @@ from app.services.follow_up_service import FollowUpService
 from app.services.audit import record_audit_log
 
 def is_within_business_hours(policy: AutomationPolicy) -> bool:
-    """Checks whether current time is within 10:00 AM - 6:00 PM local time (IST)."""
-    if not getattr(policy, "enforce_business_hours", True):
+    """Checks whether current time is within allowed window. If enforce_business_hours is False, allows 24/7 anytime sending."""
+    if not getattr(policy, "enforce_business_hours", False):
         return True
 
     start_hour = getattr(policy, "email_window_start_hour", 10) or 10
@@ -482,8 +482,8 @@ class DurableScheduler:
         if not policy:
             return {"status": "ERROR", "message": "Automation policy not found."}
 
-        # Check operating hours (10:00 AM - 6:00 PM IST) unless forced
-        if not force and not is_within_business_hours(policy):
+        # Check operating hours unless enforce_business_hours is False or force is True
+        if getattr(policy, "enforce_business_hours", False) and not force and not is_within_business_hours(policy):
             return {
                 "status": "PAUSED_HOURS",
                 "message": "Outbound emails are paused outside business hours (10:00 AM - 6:00 PM IST). Use Force Dispatch to override or wait until 10:00 AM.",

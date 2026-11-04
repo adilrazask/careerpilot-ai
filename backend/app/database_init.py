@@ -85,7 +85,7 @@ def init_db(db: Session = None):
         if "timezone_offset_hours" not in cols_ap:
             conn.execute(text("ALTER TABLE automation_policies ADD COLUMN timezone_offset_hours FLOAT DEFAULT 5.5"))
         if "enforce_business_hours" not in cols_ap:
-            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN enforce_business_hours BOOLEAN DEFAULT 1"))
+            conn.execute(text("ALTER TABLE automation_policies ADD COLUMN enforce_business_hours BOOLEAN DEFAULT 0"))
 
         conn.commit()
     

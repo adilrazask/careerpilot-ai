@@ -57,6 +57,7 @@ client_secret*.json
 *.key
 
 # Local SQLite databases & runtime data
+data/
 backend/data/*.db*
 backend/data/resumes/*
 backend/data/uploads/*

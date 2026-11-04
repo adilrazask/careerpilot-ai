@@ -20,11 +20,11 @@ export const Navbar: React.FC<NavbarProps> = ({ metrics, onRefresh }) => {
   const handleOneClickDispatch = async () => {
     setLoadingAction(true);
     try {
-      const res = await api.dispatchBatch(10, false);
+      const res = await api.dispatchBatch(100, false);
       if (res.status === 'PAUSED_HOURS') {
         const force = window.confirm(`${res.message}\n\nWould you like to Force Dispatch now regardless of hours?`);
         if (force) {
-          const forceRes = await api.dispatchBatch(10, true);
+          const forceRes = await api.dispatchBatch(100, true);
           if (forceRes.dispatched_count > 0) {
             alert(`Force dispatched ${forceRes.dispatched_count} application(s) with your exact resume PDF!\nRemaining daily allowance: ${forceRes.remaining_daily_allowance}`);
           } else {
@@ -126,11 +126,11 @@ export const Navbar: React.FC<NavbarProps> = ({ metrics, onRefresh }) => {
           <button
             onClick={handleOneClickDispatch}
             disabled={loadingAction}
-            title="One-click apply to prepared batch (max 10/day, strictly 10:00 AM - 6:00 PM IST)"
+            title="One-click apply to prepared batch (max 100/day, 24/7 anytime sending)"
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-500/25 transition-colors disabled:opacity-50"
           >
             <Zap className={`h-3.5 w-3.5 ${loadingAction ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">One-Click Apply (10 Cap)</span>
+            <span className="hidden sm:inline">One-Click Apply (100 Cap)</span>
           </button>
 
           {/* Manual Run Cycle */}

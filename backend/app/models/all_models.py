@@ -540,7 +540,7 @@ class AutomationPolicy(Base):
     email_window_start_hour = Column(Integer, default=10) # 10:00 AM
     email_window_end_hour = Column(Integer, default=18) # 6:00 PM (18:00)
     timezone_offset_hours = Column(Float, default=5.5) # Indian Standard Time (IST, UTC+5:30)
-    enforce_business_hours = Column(Boolean, default=True) # Mails stop outside 10am-6pm window
+    enforce_business_hours = Column(Boolean, default=False) # 24/7 anytime sending allowed
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 # 27. ScheduledTask & Task Queue

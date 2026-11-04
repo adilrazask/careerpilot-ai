@@ -161,8 +161,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
           </div>
           <div>
             <p className="text-[10px] uppercase font-bold text-slate-400">Operating Hours</p>
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">10:00 AM – 6:00 PM IST</p>
-            <p className="text-[10px] text-slate-500">Mails pause after 6 PM</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-100">24/7 (Anytime Sending Active)</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Outreach permitted anytime</p>
           </div>
         </div>
 
