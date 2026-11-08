@@ -4,6 +4,7 @@ import { Sidebar, PageId } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { AgentWorkspace } from './pages/AgentWorkspace';
 import { JobDiscovery } from './pages/JobDiscovery';
+import { OutsidePortalHotMail } from './pages/OutsidePortalHotMail';
 import { CareerProfilePage } from './pages/CareerProfile';
 import { ResumeIntelligence } from './pages/ResumeIntelligence';
 import { ContactDiscovery } from './pages/ContactDiscovery';
@@ -118,6 +119,7 @@ export const App: React.FC = () => {
               {currentPage === 'voice' && <VoiceControlPanel onNavigate={setCurrentPage} />}
               {currentPage === 'agent' && <AgentWorkspace />}
               {currentPage === 'jobs' && <JobDiscovery onNavigate={setCurrentPage} />}
+              {currentPage === 'outside-portal' && <OutsidePortalHotMail onNavigate={setCurrentPage} />}
               {currentPage === 'profile' && <CareerProfilePage />}
               {currentPage === 'resumes' && <ResumeIntelligence />}
               {currentPage === 'contacts' && <ContactDiscovery />}

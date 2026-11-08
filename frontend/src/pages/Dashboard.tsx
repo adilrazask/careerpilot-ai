@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import {
   Compass, CheckCircle2, FileCheck, Send, Mail, Clock,
   MessageSquare, Calendar, XCircle, ShieldCheck, AlertTriangle,
-  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap
+  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap, Flame
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -120,6 +120,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
 
         {/* Quick Controller Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onNavigate('outside-portal')}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white transition shadow-md flex items-center gap-1.5"
+            title="Outside Portals & Hot Mail: Search external portals, verify genuine HR email, and hot-mail directly"
+          >
+            <Flame className="h-3.5 w-3.5 fill-white" />
+            <span>Outside Portals & Hot Mail</span>
+          </button>
           <button
             onClick={handleOneClickBatch}
             disabled={loading}

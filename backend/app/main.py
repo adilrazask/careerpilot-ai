@@ -13,7 +13,7 @@ from app.database_init import init_db
 from app.routers import (
     dashboard, agent, jobs, profile, resumes, contacts,
     applications, integrations, policy, audit, worker, voice,
-    auth, admin
+    auth, admin, outside_portal
 )
 
 _worker_stop_event = threading.Event()
@@ -81,6 +81,7 @@ app.include_router(worker.router)
 app.include_router(voice.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(outside_portal.router)
 
 @app.get("/")
 def root():

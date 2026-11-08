@@ -386,5 +386,27 @@ export const api = {
   terminateAllUserSessions: async (userId: number) => {
     const res = await axios.post(`${API_BASE}/admin/users/${userId}/terminate-all`);
     return res.data;
+  },
+
+  // Outside Portals & Hot Mailer
+  getOutsidePortalDirectory: async (): Promise<{ total: number; directory: Array<{ company: string; email: string; domain: string; portal: string; mx_provider: string }> }> => {
+    const res = await axios.get(`${API_BASE}/outside-portal/directory`);
+    return res.data;
+  },
+  verifyEmailDNS: async (email_or_domain: string): Promise<{ valid: boolean; domain: string; has_mx: boolean; mx_hosts: string[]; provider?: string; reason: string }> => {
+    const res = await axios.post(`${API_BASE}/outside-portal/verify-email`, { email_or_domain });
+    return res.data;
+  },
+  searchOutsidePortals: async (params: { query?: string; location?: string; portal?: string; max_results?: number }) => {
+    const res = await axios.post(`${API_BASE}/outside-portal/search`, params);
+    return res.data;
+  },
+  extractOutsideJob: async (payload: { url?: string; job_title?: string; company_name?: string; location?: string; description?: string; source_platform?: string }) => {
+    const res = await axios.post(`${API_BASE}/outside-portal/extract`, payload);
+    return res.data;
+  },
+  sendHotMail: async (payload: { job_id?: number; company_name: string; job_title: string; recipient_email: string; subject: string; body_text: string; job_url?: string }) => {
+    const res = await axios.post(`${API_BASE}/outside-portal/send-hot-mail`, payload);
+    return res.data;
   }
 };
