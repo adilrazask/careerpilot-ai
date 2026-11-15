@@ -6,6 +6,7 @@ import { AgentWorkspace } from './pages/AgentWorkspace';
 import { JobDiscovery } from './pages/JobDiscovery';
 import { OutsidePortalHotMail } from './pages/OutsidePortalHotMail';
 import { PartnershipPitch } from './pages/PartnershipPitch';
+import { InternationalJobs } from './pages/InternationalJobs';
 import { CareerProfilePage } from './pages/CareerProfile';
 import { ResumeIntelligence } from './pages/ResumeIntelligence';
 import { ContactDiscovery } from './pages/ContactDiscovery';
@@ -122,6 +123,7 @@ export const App: React.FC = () => {
               {currentPage === 'jobs' && <JobDiscovery onNavigate={setCurrentPage} />}
               {currentPage === 'outside-portal' && <OutsidePortalHotMail onNavigate={setCurrentPage} />}
               {currentPage === 'partnership' && <PartnershipPitch onNavigate={setCurrentPage} />}
+              {currentPage === 'international-jobs' && <InternationalJobs onNavigate={setCurrentPage} />}
               {currentPage === 'profile' && <CareerProfilePage />}
               {currentPage === 'resumes' && <ResumeIntelligence />}
               {currentPage === 'contacts' && <ContactDiscovery />}

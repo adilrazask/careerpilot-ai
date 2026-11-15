@@ -813,6 +813,7 @@ def send_hot_mail(payload: SendHotMailRequest, db: Session = Depends(get_db)):
             contact.source_url = target_url
             contact.verification_status = "SOURCE_VERIFIED"
             contact.verification_method = "official_careers_channel"
+            contact.intended_use = "application_outreach"
             contact.is_seed = False
 
         db.commit()

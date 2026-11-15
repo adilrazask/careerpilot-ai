@@ -13,7 +13,7 @@ from app.database_init import init_db
 from app.routers import (
     dashboard, agent, jobs, profile, resumes, contacts,
     applications, integrations, policy, audit, worker, voice,
-    auth, admin, outside_portal, partnership
+    auth, admin, outside_portal, partnership, international_jobs
 )
 
 _worker_stop_event = threading.Event()
@@ -89,6 +89,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(outside_portal.router)
 app.include_router(partnership.router)
+app.include_router(international_jobs.router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

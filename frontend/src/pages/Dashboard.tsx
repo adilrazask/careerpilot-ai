@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import {
   Compass, CheckCircle2, FileCheck, Send, Mail, Clock,
   MessageSquare, Calendar, XCircle, ShieldCheck, AlertTriangle,
-  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap, Flame, Handshake
+  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap, Flame, Handshake, Globe2
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -135,6 +135,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
           >
             <Handshake className="h-3.5 w-3.5" />
             <span>Partnership & Investor Pitch</span>
+          </button>
+          <button
+            onClick={() => onNavigate('international-jobs')}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition shadow-md flex items-center gap-1.5 shadow-emerald-600/20"
+            title="International Jobs: Direct corporate HR applications for UAE, Qatar, Kuwait, Saudi, Australia, New Zealand, USA & UK"
+          >
+            <Globe2 className="h-3.5 w-3.5" />
+            <span>International & Gulf Jobs</span>
           </button>
           <button
             onClick={handleOneClickBatch}

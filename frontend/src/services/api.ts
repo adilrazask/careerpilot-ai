@@ -430,5 +430,30 @@ export const api = {
   sendPartnershipPitch: async (payload: { recipient_email: string; director_name?: string; company_name?: string; subject: string; body_text: string; demo_url?: string }) => {
     const res = await axios.post(`${API_BASE}/partnership/send`, payload);
     return res.data;
+  },
+
+  // International Jobs & Global HR Direct Outreach
+  getInternationalDirectory: async (): Promise<{
+    status: string;
+    gulf_portals: Array<{ name: string; url: string; region: string; description: string }>;
+    gulf_companies: Array<{ company: string; country: string; city: string; email: string; domain: string; mx_provider: string; industry: string; target_roles: string }>;
+    western_companies: Array<{ company: string; country: string; city: string; email: string; domain: string; mx_provider: string; industry: string; target_roles: string }>;
+    total_gulf: number;
+    total_western: number;
+  }> => {
+    const res = await axios.get(`${API_BASE}/international-jobs/directory`);
+    return res.data;
+  },
+  verifyInternationalEmail: async (email_or_domain: string): Promise<{ valid: boolean; domain: string; has_mx: boolean; mx_hosts: string[]; provider?: string; reason: string }> => {
+    const res = await axios.post(`${API_BASE}/international-jobs/verify-email`, { email_or_domain });
+    return res.data;
+  },
+  draftInternationalApplication: async (payload: { company_name: string; country: string; target_role?: string; city?: string; recipient_name?: string }) => {
+    const res = await axios.post(`${API_BASE}/international-jobs/draft`, payload);
+    return res.data;
+  },
+  sendInternationalApplication: async (payload: { recipient_email: string; company_name: string; country: string; job_title: string; subject: string; body_text: string; body?: string; job_url?: string; portal_url?: string; recipient_name?: string }) => {
+    const res = await axios.post(`${API_BASE}/international-jobs/send`, payload);
+    return res.data;
   }
 };

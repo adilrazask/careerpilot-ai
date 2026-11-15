@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, Bot, Compass, UserCircle, FileText,
-  Users, Send, Sliders, Puzzle, ClipboardList, Mic, Shield, LogOut, Flame, Handshake
+  Users, Send, Sliders, Puzzle, ClipboardList, Mic, Shield, LogOut, Flame, Handshake, Globe2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +12,7 @@ export type PageId =
   | 'jobs'
   | 'outside-portal'
   | 'partnership'
+  | 'international-jobs'
   | 'profile'
   | 'resumes'
   | 'contacts'
@@ -37,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onSelectPage, unr
     { id: 'jobs', label: 'Job Discovery', icon: Compass },
     { id: 'outside-portal', label: 'Outside Portals & Hot Mail', icon: Flame },
     { id: 'partnership', label: 'Partnership & Investor Pitch', icon: Handshake },
+    { id: 'international-jobs', label: 'International & Gulf Jobs', icon: Globe2 },
     { id: 'profile', label: 'Career Profile', icon: UserCircle },
     { id: 'resumes', label: 'Resume Intelligence', icon: FileText },
     { id: 'contacts', label: 'HR & Recruiter Contacts', icon: Users },

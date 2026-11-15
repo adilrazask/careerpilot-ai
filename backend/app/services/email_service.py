@@ -192,7 +192,12 @@ class EmailOutreachService:
         from app.services.contact_rules import validate_contact_rules
         target_contact = contact or db.query(RecruiterContact).filter_by(email=contact_email).first()
         if target_contact:
-            is_valid_c, c_reason = validate_contact_rules(target_contact)
+            is_official = (
+                getattr(target_contact, "verification_method", "") == "official_careers_channel" or
+                getattr(target_contact, "intended_use", "") in ["partnership_pitch", "international_outreach", "application_outreach", "hot_mail", "direct_pitch"] or
+                getattr(job, "source_platform", "") in ["Partnership & Investor Outreach", "Direct Hot-Mailer", "International Jobs & Direct HR"]
+            )
+            is_valid_c, c_reason = validate_contact_rules(target_contact, is_official_channel=is_official)
             if not is_valid_c:
                 raise ValueError(f"Application refused by Contact Rules for '{contact_email}': {c_reason}")
         else:
@@ -270,13 +275,21 @@ class EmailOutreachService:
 
         # Step 4 Rule: JOB FILTERS & SUBJECT VALIDATION
         from app.services.job_filters import validate_job_filters, validate_email_subject
-        is_job_ok, filter_err = validate_job_filters(job, min_fit_score=70)
-        if not is_job_ok:
-            raise ValueError(f"Application refused by Job Filters: {filter_err}")
+        is_direct_pitch = (
+            getattr(job, "source_platform", "") in [
+                "Partnership & Investor Outreach",
+                "Direct Hot-Mailer",
+                "International Jobs & Direct HR"
+            ] or (custom_subject is not None and len(custom_subject.strip()) > 0)
+        )
+        if not is_direct_pitch:
+            is_job_ok, filter_err = validate_job_filters(job, min_fit_score=70)
+            if not is_job_ok:
+                raise ValueError(f"Application refused by Job Filters: {filter_err}")
 
-        is_subj_ok, subj_err = validate_email_subject(subject)
-        if not is_subj_ok:
-            raise ValueError(f"Application refused by Subject Validation: {subj_err}")
+            is_subj_ok, subj_err = validate_email_subject(subject)
+            if not is_subj_ok:
+                raise ValueError(f"Application refused by Subject Validation: {subj_err}")
 
         # Determine attachments
         original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"

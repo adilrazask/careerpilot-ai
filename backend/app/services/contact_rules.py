@@ -22,7 +22,8 @@ BLOCKED_PORTAL_DOMAINS = [
 
 def validate_contact_rules(
     contact: RecruiterContact,
-    company_employee_count: Optional[int] = None
+    company_employee_count: Optional[int] = None,
+    is_official_channel: bool = False
 ) -> Tuple[bool, str]:
     """
     Validates a recruiter contact against Step 3 rules:
@@ -43,12 +44,24 @@ def validate_contact_rules(
     local_part, domain = email.split("@", 1)
     local_part_clean = local_part.strip().lower()
 
-    # 1. Blocked local parts
-    if local_part_clean in BLOCKED_LOCAL_PARTS:
-        return False, f"Blocked generic email prefix: '{local_part}@'"
+    # Determine if this is an official corporate desk or partnership outreach
+    is_official = (
+        is_official_channel or
+        getattr(contact, "intended_use", "") in ["partnership_pitch", "international_outreach", "application_outreach", "hot_mail", "direct_pitch"] or
+        getattr(contact, "verification_method", "") == "official_careers_channel"
+    )
 
-    # careers blocked for companies over 1000 staff
-    if local_part_clean == "careers":
+    # 1. Blocked local parts
+    if is_official:
+        # For verified official desks, allow contact@, info@, connect@, etc. Only block automated no-reply
+        if local_part_clean in {"noreply", "no-reply", "accommodations", "leaves"}:
+            return False, f"Blocked unmonitored automated email prefix: '{local_part}@'"
+    else:
+        if local_part_clean in BLOCKED_LOCAL_PARTS:
+            return False, f"Blocked generic email prefix: '{local_part}@'"
+
+    # careers blocked for companies over 1000 staff (unless verified official channel)
+    if local_part_clean == "careers" and not is_official:
         emp_count = company_employee_count
         if emp_count is None and hasattr(contact, "company") and contact.company:
             emp_count = getattr(contact.company, "employee_count", None)

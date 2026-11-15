@@ -391,7 +391,7 @@ def draft_partnership_pitch(payload: DraftPitchRequest):
     comp = (payload.company_name or "Strategic Partner").strip()
     demo = (payload.demo_url or "https://github.com/adilrazask").strip()
 
-    subject = f"6-Month Build: AI-Driven Automated Trading Platform — Partnership & Seed Collaboration | SK Adil Raja"
+    subject = f"AI-Driven Automated Trading Platform (6-Month Build) — Partnership & Seed Collaboration | SK Adil Raja"
 
     body = f"""Dear {name},
 
@@ -516,6 +516,7 @@ def send_partnership_pitch(payload: SendPitchRequest, db: Session = Depends(get_
             contact.source_url = target_url
             contact.verification_status = "SOURCE_VERIFIED"
             contact.verification_method = "official_careers_channel"
+            contact.intended_use = "partnership_pitch"
             contact.is_seed = False
         db.commit()
 
