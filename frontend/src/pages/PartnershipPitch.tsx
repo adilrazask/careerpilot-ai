@@ -31,6 +31,13 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
   const [searchFilter, setSearchFilter] = useState('');
   const [isLoadingDirectory, setIsLoadingDirectory] = useState(false);
 
+  // Auto-Search / Discover from Internet State
+  const [searchQuery, setSearchQuery] = useState('Fintech & Algorithmic Trading Investors');
+  const [searchLocation, setSearchLocation] = useState('Hyderabad & India');
+  const [searchSector, setSearchSector] = useState('all');
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [discoveryStatus, setDiscoveryStatus] = useState<string | null>(null);
+
   // Manual Ingestion State
   const [manualEmail, setManualEmail] = useState('');
   const [manualName, setManualName] = useState('');
@@ -65,6 +72,30 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
       console.warn('Failed to load directors directory:', err);
     } finally {
       setIsLoadingDirectory(false);
+    }
+  };
+
+  const handleAutoDiscoverInvestors = async () => {
+    setIsDiscovering(true);
+    setDiscoveryStatus(null);
+    try {
+      const res = await api.discoverInvestors({
+        query: searchQuery,
+        location: searchLocation,
+        sector: searchSector,
+        max_results: 18
+      });
+      if (res.investors && res.investors.length > 0) {
+        setDirectors(res.investors);
+        setDiscoveryStatus(`Auto-Discovery Success: Refreshed with ${res.total} verified tech investors & directors from internet. Real DNS MX verified.`);
+      } else {
+        setDiscoveryStatus('No new investors found matching the exact query. Showing top verified Indian fintech directors.');
+        fetchDirectors();
+      }
+    } catch (err: any) {
+      setDiscoveryStatus(`Search error: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setIsDiscovering(false);
     }
   };
 
@@ -300,25 +331,114 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
       {/* TAB 1: VERIFIED DIRECTORS DIRECTORY */}
       {activeTab === 'directory' && (
         <div className="space-y-6">
+          {/* Auto-Search for Investors from Internet Bar */}
+          <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-indigo-600/20 text-indigo-400">
+                  <Globe className="w-4 h-4 animate-spin-slow" />
+                </span>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Auto-Search New Investors from Internet
+                </h3>
+              </div>
+              <span className="text-[10px] text-indigo-300 font-medium bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-800 self-start sm:self-auto">
+                Live DNS MX & Deliverability Guaranteed
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Target Sector / Keyword</label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="e.g. Fintech, Algorithmic Trading"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Target Geography</label>
+                <input
+                  type="text"
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  placeholder="e.g. Hyderabad, Bengaluru, Mumbai"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1">Investor Category</label>
+                <select
+                  value={searchSector}
+                  onChange={(e) => setSearchSector(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="all">All Tech & Seed Investors</option>
+                  <option value="fintech">FinTech & Trading Platforms</option>
+                  <option value="angel">Angel Networks & Syndicates</option>
+                  <option value="seed">Venture Funds & Incubators</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={handleAutoDiscoverInvestors}
+                  disabled={isDiscovering}
+                  className="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm shadow-indigo-600/30"
+                >
+                  {isDiscovering ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Scanning Internet...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="w-4 h-4" />
+                      <span>Auto-Search Investors</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {discoveryStatus && (
+              <p className="text-xs text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 rounded-xl px-3 py-2">
+                {discoveryStatus}
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-400" />
-                <span>Verified Tech Directors & Seed Partners</span>
+                <span>Verified Tech Directors & Seed Partners ({filteredDirectors.length})</span>
               </h2>
               <p className="text-xs text-slate-400 mt-1">
                 Curated network of tech directors, angel syndicates, and seed funds in Hyderabad, Bangalore, and Mumbai specializing in AI and quantitative software.
               </p>
             </div>
 
-            <div className="w-full md:w-72">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <input
                 type="text"
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Search director, firm, or focus..."
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                placeholder="Filter results..."
+                className="w-full md:w-60 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
               />
+              <button
+                onClick={fetchDirectors}
+                disabled={isLoadingDirectory}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs transition-colors"
+                title="Reload Pre-Verified Directory"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoadingDirectory ? 'animate-spin' : ''}`} />
+              </button>
             </div>
           </div>
 

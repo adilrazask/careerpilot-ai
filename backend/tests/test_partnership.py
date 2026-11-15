@@ -33,6 +33,23 @@ def test_partnership_directors_directory(client):
     assert data["total"] > 0
     assert any("Hyderabad Angels" in d["company"] for d in data["directors"])
 
+def test_partnership_discover_auto_search(client):
+    res = client.post("/api/partnership/discover", json={
+        "query": "Fintech & Algorithmic Trading",
+        "location": "Hyderabad & India",
+        "sector": "all",
+        "max_results": 10
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["total"] > 0
+    first = data["investors"][0]
+    assert "name" in first
+    assert "email" in first
+    assert "pitch_draft" in first
+    assert "SK Adil Raja" in first["pitch_draft"]["body"]
+
 def test_partnership_draft_pitch(client):
     res = client.post("/api/partnership/draft", json={
         "director_name": "Mr. Rajesh Kumar",

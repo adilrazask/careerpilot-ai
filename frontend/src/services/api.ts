@@ -411,6 +411,10 @@ export const api = {
   },
 
   // Partnership & Strategic Investor Outreach
+  discoverInvestors: async (params: { query?: string; location?: string; sector?: string; max_results?: number }) => {
+    const res = await axios.post(`${API_BASE}/partnership/discover`, params);
+    return res.data;
+  },
   getDirectorDirectory: async (): Promise<{ total: number; directors: Array<{ name: string; title: string; company: string; domain: string; email: string; location: string; focus: string; mx_provider: string }> }> => {
     const res = await axios.get(`${API_BASE}/partnership/directors`);
     return res.data;

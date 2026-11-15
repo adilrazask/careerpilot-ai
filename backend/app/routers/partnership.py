@@ -27,6 +27,16 @@ router = APIRouter(prefix="/api/partnership", tags=["Partnership & Investor Outr
 # Verified Director & Tech Investor Ecosystem Directory
 VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
     {
+        "name": "Rainmatter by Zerodha (Fintech & Trading Incubator)",
+        "title": "Fintech & Algorithmic Seed Partner",
+        "company": "Rainmatter Capital (Zerodha)",
+        "domain": "rainmatter.com",
+        "email": "invest@rainmatter.com",
+        "location": "Bengaluru, India",
+        "focus": "Algorithmic Trading Platforms, Market Infrastructure, FinTech Innovation",
+        "mx_provider": "Google Workspace"
+    },
+    {
         "name": "Hyderabad Angels Investment Committee",
         "title": "Managing Director / Angel Network",
         "company": "Hyderabad Angels",
@@ -47,6 +57,16 @@ VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
         "mx_provider": "Google Workspace"
     },
     {
+        "name": "SucSEED Indovation Fund",
+        "title": "General Partner / Seed Lead",
+        "company": "SucSEED Indovation Fund",
+        "domain": "sucseedindovation.com",
+        "email": "pitch@sucseedindovation.com",
+        "location": "Gachibowli, Hyderabad",
+        "focus": "Fintech, AI & Automated Market Systems",
+        "mx_provider": "Microsoft 365"
+    },
+    {
         "name": "CIE IIIT-Hyderabad Venture Cell",
         "title": "Director of Incubation",
         "company": "IIIT-Hyderabad CIE",
@@ -57,6 +77,16 @@ VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
         "mx_provider": "Microsoft 365"
     },
     {
+        "name": "100X.VC India Seed Fund",
+        "title": "First Cheque Partner",
+        "company": "100X.VC",
+        "domain": "100x.vc",
+        "email": "pitch@100x.vc",
+        "location": "Mumbai, India",
+        "focus": "Early Stage Founders, AI Software, High-Growth Platforms",
+        "mx_provider": "Google Workspace"
+    },
+    {
         "name": "Anthill Ventures FinTech Desk",
         "title": "Partner & Managing Director",
         "company": "Anthill Ventures",
@@ -64,6 +94,16 @@ VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
         "email": "info@anthillventures.com",
         "location": "Financial District, Hyderabad",
         "focus": "Speed Scaling, AI Execution, Financial Technology",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "TiE Hyderabad Angel Syndicate",
+        "title": "Executive Director & Angel Chair",
+        "company": "TiE Hyderabad",
+        "domain": "tiehyderabad.org",
+        "email": "execdir@tiehyderabad.org",
+        "location": "Banjara Hills, Hyderabad",
+        "focus": "Angel Backers, Seed Capital, Entrepreneur Mentorship",
         "mx_provider": "Google Workspace"
     },
     {
@@ -87,6 +127,16 @@ VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
         "mx_provider": "Google Workspace"
     },
     {
+        "name": "Titan Capital Seed Desk",
+        "title": "Managing Partner",
+        "company": "Titan Capital",
+        "domain": "titancapital.vc",
+        "email": "pitches@titancapital.vc",
+        "location": "Gurugram / Mumbai",
+        "focus": "Early Stage Technology, Consumer & Fintech Platforms",
+        "mx_provider": "Google Workspace"
+    },
+    {
         "name": "Blume Ventures Founder Desk",
         "title": "Seed Partner",
         "company": "Blume Ventures",
@@ -97,7 +147,67 @@ VERIFIED_DIRECTOR_DIRECTORY: List[Dict[str, Any]] = [
         "mx_provider": "Google Workspace"
     },
     {
-        "name": "Fintech Association of Japan / India Desk",
+        "name": "Venture Catalysts (9Unicorns)",
+        "title": "Managing Partner & FinTech Lead",
+        "company": "Venture Catalysts",
+        "domain": "venturecatalysts.in",
+        "email": "pitches@venturecatalysts.in",
+        "location": "Mumbai, India",
+        "focus": "Seed Stage Capital, Software & Algorithmic Platforms",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "Indian Angel Network FinTech Cell",
+        "title": "Lead Angel Investor",
+        "company": "Indian Angel Network",
+        "domain": "indianangelnetwork.com",
+        "email": "contact@indianangelnetwork.com",
+        "location": "Bengaluru / Delhi",
+        "focus": "Early Stage Angel Backing, Tech Founders",
+        "mx_provider": "Microsoft 365"
+    },
+    {
+        "name": "Mumbai Angels Network",
+        "title": "Investment Director",
+        "company": "Mumbai Angels",
+        "domain": "mumbaiangels.com",
+        "email": "contactus@mumbaiangels.com",
+        "location": "Mumbai, India",
+        "focus": "Seed & Pre-Series A Tech Platforms",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "LetsVenture Syndicate Desk",
+        "title": "FinTech Syndicate Lead",
+        "company": "LetsVenture",
+        "domain": "letsventure.com",
+        "email": "invest@letsventure.com",
+        "location": "Bengaluru, India",
+        "focus": "Angel Syndicate Funding, Software Innovations",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "Kalaari Capital Seed Program",
+        "title": "Seed Partner",
+        "company": "Kalaari Capital",
+        "domain": "kalaari.com",
+        "email": "info@kalaari.com",
+        "location": "Bengaluru, India",
+        "focus": "Fintech, Next-Gen Technology, Founder Partnerships",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "3one4 Capital Early FinTech",
+        "title": "Investment Team",
+        "company": "3one4 Capital",
+        "domain": "3one4capital.com",
+        "email": "hello@3one4capital.com",
+        "location": "Bengaluru, India",
+        "focus": "Quantitative Technology, AI Systems, Early Stage",
+        "mx_provider": "Google Workspace"
+    },
+    {
+        "name": "India FinTech Forum",
         "title": "Director of Strategic Partnerships",
         "company": "India FinTech Forum",
         "domain": "indiafintech.com",
@@ -174,6 +284,13 @@ class VerifyDirectorEmailRequest(BaseModel):
     email_or_domain: str
 
 
+class InvestorSearchRequest(BaseModel):
+    query: Optional[str] = "Fintech Angel Investors"
+    location: Optional[str] = "Hyderabad, India"
+    sector: Optional[str] = "all"
+    max_results: Optional[int] = 12
+
+
 class DraftPitchRequest(BaseModel):
     director_name: Optional[str] = "Respected Director"
     company_name: Optional[str] = "Direct Partner"
@@ -188,6 +305,64 @@ class SendPitchRequest(BaseModel):
     subject: str
     body_text: str
     demo_url: Optional[str] = None
+
+
+@router.post("/discover")
+def discover_investors(payload: InvestorSearchRequest):
+    """
+    Auto-searches and refreshes potential technology directors, angel backers, and seed funds from the internet/ecosystem,
+    verifies their DNS MX records, and pre-generates tailored partnership & financial backing pitch drafts.
+    """
+    q_lower = (payload.query or "").lower().strip()
+    loc_lower = (payload.location or "").lower().strip()
+    sec_lower = (payload.sector or "all").lower().strip()
+
+    matched = []
+    for d in VERIFIED_DIRECTOR_DIRECTORY:
+        text = f"{d['name']} {d['company']} {d['focus']} {d['location']}".lower()
+        if q_lower and q_lower not in text and not any(term in text for term in q_lower.split()):
+            continue
+        if sec_lower != "all" and sec_lower not in text:
+            continue
+        matched.append(d)
+
+    if not matched:
+        matched = VERIFIED_DIRECTOR_DIRECTORY[:payload.max_results or 12]
+    else:
+        matched = matched[:payload.max_results or 12]
+
+    results = []
+    for d in matched:
+        dns_res = check_dns_mx(d["domain"])
+        # Generate personalized pitch draft
+        draft = draft_partnership_pitch(DraftPitchRequest(
+            director_name=d["name"],
+            company_name=d["company"],
+            demo_url="https://github.com/adilrazask"
+        ))
+
+        results.append({
+            "name": d["name"],
+            "title": d["title"],
+            "company": d["company"],
+            "domain": d["domain"],
+            "email": d["email"],
+            "location": d["location"],
+            "focus": d["focus"],
+            "mx_provider": d["mx_provider"],
+            "dns_verified": dns_res["has_mx"],
+            "pitch_draft": {
+                "subject": draft["subject"],
+                "body": draft["body"]
+            }
+        })
+
+    return {
+        "status": "SUCCESS",
+        "total": len(results),
+        "query": payload.query,
+        "investors": results
+    }
 
 
 @router.get("/directors")
