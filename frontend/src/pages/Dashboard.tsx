@@ -6,7 +6,7 @@ import { api } from '../services/api';
 import {
   Compass, CheckCircle2, FileCheck, Send, Mail, Clock,
   MessageSquare, Calendar, XCircle, ShieldCheck, AlertTriangle,
-  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap, Flame
+  Play, Pause, Sliders, ArrowUpRight, RefreshCw, Server, ShieldAlert, Zap, Flame, Handshake
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -127,6 +127,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ metrics, onRefresh, onNavi
           >
             <Flame className="h-3.5 w-3.5 fill-white" />
             <span>Outside Portals & Hot Mail</span>
+          </button>
+          <button
+            onClick={() => onNavigate('partnership')}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white transition shadow-md flex items-center gap-1.5 shadow-indigo-600/20"
+            title="Partnership & Investor Outreach: Pitch your 6-month automated trading platform to directors and tech angels"
+          >
+            <Handshake className="h-3.5 w-3.5" />
+            <span>Partnership & Investor Pitch</span>
           </button>
           <button
             onClick={handleOneClickBatch}

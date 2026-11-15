@@ -408,5 +408,23 @@ export const api = {
   sendHotMail: async (payload: { job_id?: number; company_name: string; job_title: string; recipient_email: string; subject: string; body_text: string; job_url?: string }) => {
     const res = await axios.post(`${API_BASE}/outside-portal/send-hot-mail`, payload);
     return res.data;
+  },
+
+  // Partnership & Strategic Investor Outreach
+  getDirectorDirectory: async (): Promise<{ total: number; directors: Array<{ name: string; title: string; company: string; domain: string; email: string; location: string; focus: string; mx_provider: string }> }> => {
+    const res = await axios.get(`${API_BASE}/partnership/directors`);
+    return res.data;
+  },
+  verifyDirectorEmail: async (email_or_domain: string): Promise<{ valid: boolean; domain: string; has_mx: boolean; mx_hosts: string[]; provider?: string; reason: string }> => {
+    const res = await axios.post(`${API_BASE}/partnership/verify-email`, { email_or_domain });
+    return res.data;
+  },
+  draftPartnershipPitch: async (payload: { director_name?: string; company_name?: string; demo_url?: string; partnership_type?: string }) => {
+    const res = await axios.post(`${API_BASE}/partnership/draft`, payload);
+    return res.data;
+  },
+  sendPartnershipPitch: async (payload: { recipient_email: string; director_name?: string; company_name?: string; subject: string; body_text: string; demo_url?: string }) => {
+    const res = await axios.post(`${API_BASE}/partnership/send`, payload);
+    return res.data;
   }
 };

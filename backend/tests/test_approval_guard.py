@@ -78,7 +78,7 @@ def test_daily_send_cap_enforced(approval_test_db):
     )
     session.add(app)
 
-    # Insert DAILY_SEND_CAP sent emails today
+    # Insert DAILY_SEND_CAP sent emails today in IST
     now = datetime.now(timezone.utc)
     for i in range(DAILY_SEND_CAP):
         msg = EmailMessage(
@@ -90,7 +90,7 @@ def test_daily_send_cap_enforced(approval_test_db):
             subject="Application",
             body_text="Body",
             provider="smtp",
-            sent_or_received_at=now - timedelta(seconds=(DAILY_SEND_CAP - i) * 5)
+            sent_or_received_at=now
         )
         session.add(msg)
     session.commit()

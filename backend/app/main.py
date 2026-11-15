@@ -1,9 +1,9 @@
 import os
 import threading
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.database_init import init_db
 from app.routers import (
     dashboard, agent, jobs, profile, resumes, contacts,
     applications, integrations, policy, audit, worker, voice,
-    auth, admin, outside_portal
+    auth, admin, outside_portal, partnership
 )
 
 _worker_stop_event = threading.Event()
@@ -60,7 +60,13 @@ app = FastAPI(
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In development allow all for easy local dev
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "https://careerpilot-frontend.vercel.app"
+    ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,6 +88,21 @@ app.include_router(voice.router)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(outside_portal.router)
+app.include_router(partnership.router)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin") or "http://localhost:5173"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
 
 @app.get("/")
 def root():

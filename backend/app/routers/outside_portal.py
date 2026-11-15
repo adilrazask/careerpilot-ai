@@ -748,100 +748,117 @@ def send_hot_mail(payload: SendHotMailRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Domain verification rejected: '{domain}' has no active MX servers. Bounced delivery prevented.")
 
     now_ts = datetime.now(timezone.utc)
+    target_url = (payload.job_url or f"https://{domain}").strip()
 
-    # 3. Locate or create JobListing
-    job = None
-    if payload.job_id:
-        job = db.query(JobListing).filter_by(id=payload.job_id).first()
-
-    if not job:
-        job = JobListing(
-            title=payload.job_title,
-            company_name=payload.company_name,
-            location="Hyderabad, India",
-            source_platform="Direct Hot-Mailer",
-            original_url=payload.job_url or f"https://{domain}",
-            canonical_url=payload.job_url or f"https://{domain}",
-            description=f"Direct outside job outreach for {payload.job_title} at {payload.company_name}.",
-            vacancy_status="VERIFIED_OPEN",
-            application_method="email",
-            hr_contact_status="VERIFIED",
-            match_score=92,
-            is_seed=False,
-            is_test=False,
-            date_discovered=now_ts,
-            last_verified_at=now_ts,
-            last_verified_date=now_ts
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-
-    # 4. Synchronize recruiter contact
-    contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
-    if not contact:
-        contact = RecruiterContact(
-            job_id=job.id,
-            company_name=job.company_name,
-            contact_name=f"{job.company_name} Hiring Team",
-            contact_role="Talent Acquisition / HR",
-            email=recip,
-            source_url=job.original_url,
-            verification_method="official_careers_channel",
-            verification_status="SOURCE_VERIFIED",
-            confidence=0.98,
-            intended_use="application_outreach",
-            is_seed=False
-        )
-        db.add(contact)
-    else:
-        contact.email = recip
-        contact.verification_status = "SOURCE_VERIFIED"
-        contact.verification_method = "official_careers_channel"
-
-    db.commit()
-
-    # 5. Ensure ResumeVersion
-    rv = db.query(ResumeVersion).filter_by(job_id=job.id).first()
-    if not rv:
-        profile = db.query(CareerProfile).first()
-        rv = ResumeVersion(
-            profile_id=profile.id if profile else 1,
-            job_id=job.id,
-            version_name="v1-verified-ats",
-            headline=f"Operations Executive — {job.title}",
-            summary="Operations Executive with 2.5+ years experience in Omnia Steels Pvt Ltd, Attapur, Hyderabad.",
-            full_text="Operations Executive with Omnia Steels Pvt Ltd, Attapur, Hyderabad.",
-            pdf_path="./data/resumes/SK_Adil_Raja_Resume.pdf"
-        )
-        db.add(rv)
-        db.commit()
-
-    # 6. Create or synchronize ApplicationRecord
-    app_rec = db.query(ApplicationRecord).filter_by(job_id=job.id).first()
-    if not app_rec:
-        app_rec = ApplicationRecord(
-            job_id=job.id,
-            resume_version_id=rv.id if rv else None,
-            current_status="APPROVED_BY_USER",
-            submission_method="email",
-            primary_recipient=recip,
-            unattended_approved=True
-        )
-        db.add(app_rec)
-    else:
-        app_rec.current_status = "APPROVED_BY_USER"
-        app_rec.primary_recipient = recip
-        app_rec.unattended_approved = True
-
-    db.commit()
-    db.refresh(app_rec)
-
-    # 7. Transmit Hot Mail via Gmail SMTP
     try:
+        # 3. Locate or create JobListing
+        job = None
+        if payload.job_id:
+            job = db.query(JobListing).filter_by(id=payload.job_id).first()
+
+        if not job:
+            job = db.query(JobListing).filter(
+                (JobListing.original_url == target_url) |
+                ((JobListing.title == payload.job_title) & (JobListing.company_name == payload.company_name))
+            ).first()
+
+        if not job:
+            job = JobListing(
+                title=payload.job_title,
+                company_name=payload.company_name,
+                location="Hyderabad, India",
+                source_platform="Direct Hot-Mailer",
+                original_url=target_url,
+                canonical_url=target_url,
+                description=f"Direct outside job outreach for {payload.job_title} at {payload.company_name}.",
+                vacancy_status="VERIFIED_OPEN",
+                application_method="email",
+                hr_contact_status="VERIFIED",
+                match_score=92,
+                is_seed=False,
+                is_test=False,
+                date_discovered=now_ts,
+                last_verified_at=now_ts,
+                last_verified_date=now_ts
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+        else:
+            job.vacancy_status = "VERIFIED_OPEN"
+            job.last_verified_at = now_ts
+            job.is_seed = False
+            job.is_test = False
+            db.commit()
+
+        # 4. Synchronize recruiter contact
+        contact = db.query(RecruiterContact).filter_by(job_id=job.id).first()
+        if not contact:
+            contact = RecruiterContact(
+                job_id=job.id,
+                company_name=job.company_name,
+                contact_name=f"{job.company_name} Hiring Team",
+                contact_role="Talent Acquisition / HR",
+                email=recip,
+                source_url=target_url,
+                verification_method="official_careers_channel",
+                verification_status="SOURCE_VERIFIED",
+                confidence=0.98,
+                intended_use="application_outreach",
+                is_seed=False
+            )
+            db.add(contact)
+        else:
+            contact.email = recip
+            contact.source_url = target_url
+            contact.verification_status = "SOURCE_VERIFIED"
+            contact.verification_method = "official_careers_channel"
+            contact.is_seed = False
+
+        db.commit()
+
+        # 5. Ensure ResumeVersion
+        rv = db.query(ResumeVersion).filter_by(job_id=job.id).first()
+        if not rv:
+            profile = db.query(CareerProfile).first()
+            rv = ResumeVersion(
+                profile_id=profile.id if profile else 1,
+                job_id=job.id,
+                version_name="v1-verified-ats",
+                headline=f"Operations Executive — {job.title}",
+                summary="Operations Executive with 2.5+ years experience in Omnia Steels Pvt Ltd, Attapur, Hyderabad.",
+                full_text="Operations Executive with Omnia Steels Pvt Ltd, Attapur, Hyderabad.",
+                pdf_path="./data/resumes/SK_Adil_Raja_Resume.pdf"
+            )
+            db.add(rv)
+            db.commit()
+
+        # 6. Create or synchronize ApplicationRecord
+        app_rec = db.query(ApplicationRecord).filter_by(job_id=job.id).first()
+        if not app_rec:
+            app_rec = ApplicationRecord(
+                job_id=job.id,
+                resume_version_id=rv.id if rv else None,
+                current_status="APPROVED_BY_USER",
+                submission_method="email",
+                primary_recipient=recip,
+                unattended_approved=True
+            )
+            db.add(app_rec)
+        else:
+            app_rec.current_status = "APPROVED_BY_USER"
+            app_rec.primary_recipient = recip
+            app_rec.unattended_approved = True
+            if rv:
+                app_rec.resume_version_id = rv.id
+
+        db.commit()
+        db.refresh(app_rec)
+
+        # 7. Transmit Hot Mail via Gmail SMTP
         res = EmailOutreachService.send_application_email(
             application=app_rec,
-            resume=rv,
+            resume_version=rv,
             db=db,
             is_unattended=False,
             custom_subject=payload.subject,

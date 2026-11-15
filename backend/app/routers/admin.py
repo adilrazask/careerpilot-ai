@@ -19,6 +19,7 @@ SYSTEM_FEATURES = [
     {"id": "resumes", "label": "Resume Intelligence", "category": "Intelligence", "description": "Job-specific skills tailoring and truthful resume generation"},
     {"id": "contacts", "label": "HR & Recruiter Contacts", "category": "Outreach", "description": "Apollo.io verified recruiter directory, email deliverability, and executive phone numbers"},
     {"id": "outside-portal", "label": "Outside Portals & Hot Mail", "category": "Outreach", "description": "Multi-portal scanner, verified HR mailbox lookup with DNS MX checks, and 1-click Gmail hot-mailer"},
+    {"id": "partnership", "label": "Partnership & Investor Pitch", "category": "Outreach", "description": "Pitch 6-month automated trading platform to verified directors and angel mentors with live DNS checks"},
     {"id": "pipeline", "label": "Application Pipeline", "category": "Outreach", "description": "Application history and 15-day multi-cadence automated email scheduling"},
     {"id": "policy", "label": "Autopilot Policies", "category": "Governance", "description": "Autonomy thresholds, rate limits, daily caps, and zero-spam safety guards"},
     {"id": "integrations", "label": "Integrations Market", "category": "Platform", "description": "Live API credentials, Apollo.io key setup, Gmail SMTP/IMAP, and Tavily engine"},
