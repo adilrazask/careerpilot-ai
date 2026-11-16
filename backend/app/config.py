@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     CAREER_PHONE: str = os.getenv("CAREER_PHONE", "+91 9583029294")
     CAREER_EMAIL: str = os.getenv("CAREER_EMAIL", "adilrazask@gmail.com")
     CAREER_LOCATION: str = os.getenv("CAREER_LOCATION", "Hyderabad, India")
-    CAREER_LINKEDIN: str = os.getenv("CAREER_LINKEDIN", "")
+    CAREER_LINKEDIN: str = os.getenv("CAREER_LINKEDIN", "https://www.linkedin.com/in/")
     
     # Policy Defaults
     AUTONOMOUS_ENABLED: bool = False

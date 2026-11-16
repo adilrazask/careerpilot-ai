@@ -167,6 +167,8 @@ Operations Executive | Hyderabad, India
 Phone: {phone} | Email: {email}
 LinkedIn: {linkedin}"""
 
+    custom_templates = dict((profile.verified_facts or {}).get("custom_templates", {})) if profile else {}
+
     return {
         "status": "SUCCESS",
         "candidate": {
@@ -181,26 +183,26 @@ LinkedIn: {linkedin}"""
         "templates": {
             "domestic_job": {
                 "title": "Domestic Job Application (India / Hyderabad)",
-                "subject": getattr(policy, "custom_application_subject", None) or "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd",
-                "body": getattr(policy, "custom_application_body", None) or default_domestic_body,
+                "subject": custom_templates.get("domestic_job_subject") or getattr(policy, "custom_application_subject", None) or "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd",
+                "body": custom_templates.get("domestic_job_body") or getattr(policy, "custom_application_body", None) or default_domestic_body,
                 "resume_attached": True
             },
             "outside_portal": {
                 "title": "Outside Portals & Direct Hot-Mail",
-                "subject": "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd",
-                "body": default_domestic_body,
+                "subject": custom_templates.get("outside_portal_subject") or "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd",
+                "body": custom_templates.get("outside_portal_body") or default_domestic_body,
                 "resume_attached": True
             },
             "partnership": {
                 "title": "Partnership & Investor Seed Pitch (AI Trading Platform)",
-                "subject": "AI-Driven Automated Trading Platform (6-Month Build) — Partnership & Seed Collaboration | SK Adil Raja",
-                "body": default_partnership_body,
+                "subject": custom_templates.get("partnership_pitch_subject") or "AI-Driven Automated Trading Platform (6-Month Build) — Partnership & Seed Collaboration | SK Adil Raja",
+                "body": custom_templates.get("partnership_pitch_body") or default_partnership_body,
                 "resume_attached": False
             },
             "international": {
                 "title": "International Jobs & Direct Corporate HR (Gulf & Western)",
-                "subject": "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation)",
-                "body": default_international_body,
+                "subject": custom_templates.get("international_subject") or "Application: Operations Executive — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation)",
+                "body": custom_templates.get("international_body") or default_international_body,
                 "resume_attached": True
             }
         }
@@ -220,6 +222,27 @@ def update_email_templates(payload: EmailTemplatesPayload, db: Session = Depends
             profile.linkedin_url = payload.candidate_linkedin.strip()
         if payload.candidate_email:
             profile.email = payload.candidate_email.strip()
+
+        facts = dict(profile.verified_facts or {})
+        templates_store = dict(facts.get("custom_templates", {}))
+        if payload.domestic_job_subject:
+            templates_store["domestic_job_subject"] = payload.domestic_job_subject.strip()
+        if payload.domestic_job_body:
+            templates_store["domestic_job_body"] = payload.domestic_job_body.strip()
+        if payload.outside_portal_subject:
+            templates_store["outside_portal_subject"] = payload.outside_portal_subject.strip()
+        if payload.outside_portal_body:
+            templates_store["outside_portal_body"] = payload.outside_portal_body.strip()
+        if payload.partnership_pitch_subject:
+            templates_store["partnership_pitch_subject"] = payload.partnership_pitch_subject.strip()
+        if payload.partnership_pitch_body:
+            templates_store["partnership_pitch_body"] = payload.partnership_pitch_body.strip()
+        if payload.international_subject:
+            templates_store["international_subject"] = payload.international_subject.strip()
+        if payload.international_body:
+            templates_store["international_body"] = payload.international_body.strip()
+        facts["custom_templates"] = templates_store
+        profile.verified_facts = facts
 
     if policy:
         if payload.domestic_job_subject:

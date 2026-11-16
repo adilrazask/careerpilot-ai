@@ -151,19 +151,19 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     setTemplateSaveSuccess(null);
     try {
       const payload: any = {
-        candidate_phone: candidatePhone.trim(),
-        candidate_email: candidateEmail.trim(),
-        candidate_linkedin: candidateLinkedIn.trim()
+        candidate_phone: (candidatePhone || '').trim(),
+        candidate_email: (candidateEmail || '').trim(),
+        candidate_linkedin: (candidateLinkedIn || '').trim()
       };
       if (selectedTemplateKey === 'domestic_job') {
-        payload.domestic_job_subject = templateSubject.trim();
-        payload.domestic_job_body = templateBody.trim();
+        payload.domestic_job_subject = (templateSubject || '').trim();
+        payload.domestic_job_body = (templateBody || '').trim();
       } else if (selectedTemplateKey === 'international') {
-        payload.international_subject = templateSubject.trim();
-        payload.international_body = templateBody.trim();
+        payload.international_subject = (templateSubject || '').trim();
+        payload.international_body = (templateBody || '').trim();
       } else if (selectedTemplateKey === 'partnership') {
-        payload.partnership_pitch_subject = templateSubject.trim();
-        payload.partnership_pitch_body = templateBody.trim();
+        payload.partnership_pitch_subject = (templateSubject || '').trim();
+        payload.partnership_pitch_body = (templateBody || '').trim();
       }
       const res = await api.updateEmailTemplates(payload);
       setTemplateSaveSuccess(res.message || 'Template & contact details successfully updated and saved!');
@@ -176,7 +176,8 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
   };
 
   const handleSearchCompany = async () => {
-    if (!searchCompName.trim()) {
+    const compName = (searchCompName || '').trim();
+    if (!compName) {
       alert('Please enter or paste a company name.');
       return;
     }
@@ -185,9 +186,9 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     setSearchCompError(null);
     try {
       const res = await api.searchCompanyHR({
-        company_name: searchCompName.trim(),
-        country: searchCompCountry,
-        target_role: searchCompRole.trim()
+        company_name: compName,
+        country: searchCompCountry || 'United Arab Emirates',
+        target_role: (searchCompRole || '').trim() || 'Operations Executive / Supply Chain Specialist'
       });
       setSearchCompResult(res);
     } catch (err: any) {
@@ -198,7 +199,8 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
   };
 
   const handleBulkDispatch = async (scheduleMode: boolean) => {
-    if (!bulkEmailText.trim()) {
+    const emailList = (bulkEmailText || '').trim();
+    if (!emailList) {
       alert('Please paste at least one HR or official company email address.');
       return;
     }
@@ -207,11 +209,11 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     setBulkError(null);
     try {
       const res = await api.bulkDispatchInternational({
-        email_list: bulkEmailText.trim(),
+        email_list: emailList,
         schedule_mode: scheduleMode,
-        company_name: bulkCompName.trim() || undefined,
-        country: bulkCountry,
-        job_title: bulkRole.trim()
+        company_name: (bulkCompName || '').trim() || undefined,
+        country: bulkCountry || 'United Arab Emirates',
+        job_title: (bulkRole || '').trim() || 'Operations Executive / Supply Chain Specialist'
       });
       setBulkResults(res);
     } catch (err: any) {
@@ -221,11 +223,16 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     }
   };
 
-  const openComposer = async (company: string, country: string, role: string, email: string, jobUrl?: string) => {
-    setModalCompany(company);
-    setModalCountry(country);
-    setModalRole(role);
-    setModalEmail(email);
+  const openComposer = async (company: string, country: string, role?: string, email?: string, jobUrl?: string) => {
+    const safeCompany = company || 'International Employer';
+    const safeCountry = country || 'International';
+    const safeRole = role || 'Operations Executive / Supply Chain Specialist';
+    const safeEmail = email || '';
+
+    setModalCompany(safeCompany);
+    setModalCountry(safeCountry);
+    setModalRole(safeRole);
+    setModalEmail(safeEmail);
     setModalJobUrl(jobUrl || '');
     setSendSuccess(null);
     setSendError(null);
@@ -234,22 +241,23 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
 
     try {
       const draftRes = await api.draftInternationalApplication({
-        company_name: company,
-        country: country,
-        target_role: role
+        company_name: safeCompany,
+        country: safeCountry,
+        target_role: safeRole
       });
       setModalSubject(draftRes.subject);
       setModalBody(draftRes.body);
     } catch (err: any) {
-      setModalSubject(`Application: ${role} — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation to ${country})`);
-      setModalBody(`Dear Hiring Team at ${company},\n\nMy name is SK Adil Raja. I am an experienced Operations Executive currently based in Hyderabad, India, working with Omnia Steels Pvt Ltd in Attapur, Hyderabad. I am writing to express my strong interest in Operations and Supply Chain opportunities with ${company} in ${country}.\n\nWith over 2.5 years of experience orchestrating warehouse dispatch, ERP inventory reconciliation, and client logistics, I have maintained a 99%+ on-time fulfillment record. I am fully prepared and enthusiastic to relocate to ${country}.\n\nPlease find my resume attached (SK_Adil_Raja_Resume.pdf).\n\nSincerely,\nSK Adil Raja\nOperations Executive, Omnia Steels Pvt Ltd\nAttapur, Hyderabad, India\nPhone: ${candidatePhone} | Email: ${candidateEmail}\nLinkedIn: ${candidateLinkedIn}`);
+      setModalSubject(`Application: ${safeRole} — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation to ${safeCountry})`);
+      setModalBody(`Dear Hiring Team at ${safeCompany},\n\nMy name is SK Adil Raja. I am an experienced Operations Executive currently based in Hyderabad, India, working with Omnia Steels Pvt Ltd in Attapur, Hyderabad. I am writing to express my strong interest in Operations and Supply Chain opportunities with ${safeCompany} in ${safeCountry}.\n\nWith over 2.5 years of experience orchestrating warehouse dispatch, ERP inventory reconciliation, and client logistics, I have maintained a 99%+ on-time fulfillment record. I am fully prepared and enthusiastic to relocate to ${safeCountry}.\n\nPlease find my resume attached (SK_Adil_Raja_Resume.pdf).\n\nSincerely,\nSK Adil Raja\nOperations Executive, Omnia Steels Pvt Ltd\nAttapur, Hyderabad, India\nPhone: ${candidatePhone} | Email: ${candidateEmail}\nLinkedIn: ${candidateLinkedIn}`);
     } finally {
       setIsDrafting(false);
     }
   };
 
   const handleSendApplication = async () => {
-    if (!modalEmail || !modalEmail.includes('@')) {
+    const emailToUse = (modalEmail || '').trim();
+    if (!emailToUse || !emailToUse.includes('@')) {
       setSendError('Please provide a valid recipient HR email address.');
       return;
     }
@@ -257,15 +265,22 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     setSendError(null);
     setSendSuccess(null);
 
+    const safeCompany = (modalCompany || '').trim() || 'International Employer';
+    const safeCountry = (modalCountry || '').trim() || 'International';
+    const safeRole = (modalRole || '').trim() || 'Operations Executive / Supply Chain Specialist';
+    const safeSubject = (modalSubject || '').trim() || `Application: ${safeRole} — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation to ${safeCountry})`;
+    const safeBody = (modalBody || '').trim();
+    const safeJobUrl = modalJobUrl && modalJobUrl.trim() ? modalJobUrl.trim() : undefined;
+
     try {
       const res = await api.sendInternationalApplication({
-        recipient_email: modalEmail.trim(),
-        company_name: modalCompany.trim(),
-        country: modalCountry.trim(),
-        job_title: modalRole.trim(),
-        subject: modalSubject.trim(),
-        body_text: modalBody.trim(),
-        job_url: modalJobUrl.trim() || undefined
+        recipient_email: emailToUse,
+        company_name: safeCompany,
+        country: safeCountry,
+        job_title: safeRole,
+        subject: safeSubject,
+        body_text: safeBody,
+        job_url: safeJobUrl
       });
       setSendSuccess(res);
     } catch (err: any) {
@@ -584,12 +599,12 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
                     </div>
 
                     <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold text-slate-700 dark:text-slate-200">Roles:</span> {comp.target_roles}
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">Roles:</span> {comp.target_roles || 'Operations Executive / Logistics & Supply Chain'}
                     </div>
                   </div>
 
                   <button
-                    onClick={() => openComposer(comp.company, comp.country, comp.target_roles, comp.email, `https://${comp.domain}`)}
+                    onClick={() => openComposer(comp.company, comp.country, comp.target_roles || 'Operations Executive / Supply Chain Specialist', comp.email, `https://${comp.domain}`)}
                     className="w-full py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Send className="h-3.5 w-3.5" />
@@ -653,12 +668,12 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
                   </div>
 
                   <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                    <span className="font-semibold text-slate-700 dark:text-slate-200">Focus Roles:</span> {comp.target_roles}
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Focus Roles:</span> {comp.target_roles || 'Operations Executive / Logistics & Supply Chain'}
                   </div>
                 </div>
 
                 <button
-                  onClick={() => openComposer(comp.company, comp.country, comp.target_roles, comp.email, `https://${comp.domain}`)}
+                  onClick={() => openComposer(comp.company, comp.country, comp.target_roles || 'Operations Executive / Supply Chain Specialist', comp.email, `https://${comp.domain}`)}
                   className="w-full py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Send className="h-3.5 w-3.5" />

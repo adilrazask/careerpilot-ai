@@ -458,13 +458,27 @@ class SendInternationalApplicationRequest(BaseModel):
 @router.get("/directory")
 def get_international_directory():
     """Returns all Gulf portals, Gulf corporate employers, and Western direct HR directories."""
+    enriched_gulf = []
+    for c in GULF_CORPORATE_DIRECTORY:
+        item = dict(c)
+        if not item.get("target_roles"):
+            item["target_roles"] = "Operations Executive / Supply Chain Specialist / Logistics Coordinator"
+        enriched_gulf.append(item)
+
+    enriched_western = []
+    for c in WESTERN_CORPORATE_DIRECTORY:
+        item = dict(c)
+        if not item.get("target_roles"):
+            item["target_roles"] = "Operations Executive / Logistics Coordinator / Freight Specialist"
+        enriched_western.append(item)
+
     return {
         "status": "SUCCESS",
         "gulf_portals": GULF_PORTALS,
-        "gulf_companies": GULF_CORPORATE_DIRECTORY,
-        "western_companies": WESTERN_CORPORATE_DIRECTORY,
-        "total_gulf": len(GULF_CORPORATE_DIRECTORY),
-        "total_western": len(WESTERN_CORPORATE_DIRECTORY)
+        "gulf_companies": enriched_gulf,
+        "western_companies": enriched_western,
+        "total_gulf": len(enriched_gulf),
+        "total_western": len(enriched_western)
     }
 
 

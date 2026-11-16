@@ -85,6 +85,18 @@ export const OutsidePortalHotMail: React.FC<OutsidePortalHotMailProps> = ({ onNa
     handleSearch();
   }, []);
 
+  const formatErrorDetail = (err: any, fallback: string = 'Operation failed.'): string => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => d.msg ? `${d.loc?.join('.') || ''}: ${d.msg}` : JSON.stringify(d)).join(' | ');
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.msg || JSON.stringify(detail);
+    }
+    return err.message || fallback;
+  };
+
   const fetchDirectory = async () => {
     setIsLoadingDirectory(true);
     try {
@@ -110,7 +122,7 @@ export const OutsidePortalHotMail: React.FC<OutsidePortalHotMailProps> = ({ onNa
       setDiscoveredJobs(res.jobs || []);
       setSearchStatus(`Found ${res.total_discovered || 0} real outside jobs with verified corporate mailboxes.`);
     } catch (err: any) {
-      setSearchStatus(`Search error: ${err.response?.data?.detail || err.message}`);
+      setSearchStatus(`Search error: ${formatErrorDetail(err, 'Search failed.')}`);
     } finally {
       setIsSearching(false);
     }
@@ -134,7 +146,7 @@ export const OutsidePortalHotMail: React.FC<OutsidePortalHotMailProps> = ({ onNa
       // Automatically open hot mail composer with extracted details
       openHotMailComposer(res);
     } catch (err: any) {
-      alert(`Extraction failed: ${err.response?.data?.detail || err.message}`);
+      alert(`Extraction failed: ${formatErrorDetail(err, 'Extraction failed.')}`);
     } finally {
       setIsExtracting(false);
     }
@@ -152,7 +164,7 @@ export const OutsidePortalHotMail: React.FC<OutsidePortalHotMailProps> = ({ onNa
         valid: false,
         domain: dnsInput,
         has_mx: false,
-        reason: err.response?.data?.detail || 'DNS check failed'
+        reason: formatErrorDetail(err, 'DNS check failed')
       });
     } finally {
       setIsCheckingDns(false);
@@ -214,7 +226,7 @@ export const OutsidePortalHotMail: React.FC<OutsidePortalHotMailProps> = ({ onNa
       });
       setSendSuccessNotice(res);
     } catch (err: any) {
-      setSendErrorNotice(err.response?.data?.detail || err.message || 'Failed to dispatch hot-mail.');
+      setSendErrorNotice(formatErrorDetail(err, 'Failed to dispatch hot-mail.'));
     } finally {
       setIsSendingHotMail(false);
     }
