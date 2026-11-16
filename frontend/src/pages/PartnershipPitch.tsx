@@ -198,7 +198,18 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
       });
       setSendSuccessNotice(res);
     } catch (err: any) {
-      setSendErrorNotice(err.response?.data?.detail || err.message || 'Failed to dispatch partnership pitch.');
+      const detail = err.response?.data?.detail;
+      let msg = 'Failed to dispatch partnership pitch.';
+      if (typeof detail === 'string') {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d: any) => d.msg ? `${d.loc?.join('.')}: ${d.msg}` : JSON.stringify(d)).join(' | ');
+      } else if (detail && typeof detail === 'object') {
+        msg = detail.msg || JSON.stringify(detail);
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setSendErrorNotice(msg);
     } finally {
       setIsSendingPitch(false);
     }

@@ -123,7 +123,8 @@ class EmailOutreachService:
         db: Session,
         is_unattended: bool = False,
         custom_subject: Optional[str] = None,
-        custom_body: Optional[str] = None
+        custom_body: Optional[str] = None,
+        attach_resume: bool = True
     ) -> Dict[str, Any]:
         """Send application email with tailored attachments under strict policy and duplicate checks."""
         job = application.job
@@ -291,13 +292,15 @@ class EmailOutreachService:
             if not is_subj_ok:
                 raise ValueError(f"Application refused by Subject Validation: {subj_err}")
 
-        # Determine attachments
+        # Determine attachments (Partnership pitches and requests with attach_resume=False skip attachments)
         original_user_pdf = "./data/resumes/SK_Adil_Raja_Resume.pdf"
         pdf_path_to_use = None
-        if os.path.exists(original_user_pdf):
-            pdf_path_to_use = original_user_pdf
-        elif resume_version and resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
-            pdf_path_to_use = resume_version.pdf_path
+        is_partnership = getattr(job, "source_platform", "") == "Partnership & Investor Outreach"
+        if attach_resume and not is_partnership:
+            if os.path.exists(original_user_pdf):
+                pdf_path_to_use = original_user_pdf
+            elif resume_version and resume_version.pdf_path and os.path.exists(resume_version.pdf_path):
+                pdf_path_to_use = resume_version.pdf_path
 
         sender = settings.CAREER_EMAIL or settings.EMAIL_FROM or "adilrazask@gmail.com"
         now_ts = datetime.now(timezone.utc)

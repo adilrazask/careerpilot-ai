@@ -419,8 +419,8 @@ Warm regards,
 SK Adil Raja
 M.Sc. Computer Science | Operations & Systems Specialist
 Attapur, Hyderabad, India
-Phone: +91 9177174624 | Email: adilrazask@gmail.com
-LinkedIn: https://linkedin.com/in/adil-raja
+Phone: +91 9583029294 | Email: adilrazask@gmail.com
+LinkedIn: https://www.linkedin.com/in/
 """
 
     return {
@@ -557,14 +557,15 @@ def send_partnership_pitch(payload: SendPitchRequest, db: Session = Depends(get_
         db.commit()
         db.refresh(app_rec)
 
-        # 5. Dispatch via Gmail SMTP
+        # 5. Dispatch via Gmail SMTP (Strategic Pitch - No Resume Attached)
         res = EmailOutreachService.send_application_email(
             application=app_rec,
             resume_version=rv,
             db=db,
             is_unattended=False,
             custom_subject=payload.subject,
-            custom_body=payload.body_text
+            custom_body=payload.body_text,
+            attach_resume=False
         )
 
         job.application_status = app_rec.current_status
@@ -594,6 +595,7 @@ def send_partnership_pitch(payload: SendPitchRequest, db: Session = Depends(get_
             "recipient": recip,
             "director": payload.director_name,
             "company": target_comp,
+            "resume_attached": False,
             "evidence": res.get("evidence"),
             "mx_provider": mx_check.get("provider")
         }

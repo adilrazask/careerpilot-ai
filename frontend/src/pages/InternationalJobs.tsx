@@ -3,7 +3,8 @@ import { api } from '../services/api';
 import {
   Globe2, Building2, MapPin, Mail, Send, CheckCircle2,
   AlertCircle, ExternalLink, RefreshCw, Search, ShieldCheck,
-  FileText, Briefcase, Plane, Check, HelpCircle, ChevronDown, ChevronUp
+  FileText, Briefcase, Plane, Check, HelpCircle, ChevronDown, ChevronUp,
+  Clock, Calendar, User, Phone, Sparkles, Sliders, Save, Layers
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -30,7 +31,7 @@ interface CorporateEmployer {
 }
 
 export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'gulf' | 'western' | 'manual'>('gulf');
+  const [activeTab, setActiveTab] = useState<'gulf' | 'western' | 'company-search' | 'bulk-emails' | 'templates'>('gulf');
   const [showGuide, setShowGuide] = useState(true);
 
   // Directory Data
@@ -41,15 +42,34 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
   const [searchFilter, setSearchFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('ALL');
 
-  // Manual Ingestion & DNS Tester State
-  const [manualCompany, setManualCompany] = useState('');
-  const [manualCountry, setManualCountry] = useState('United Arab Emirates');
-  const [manualCity, setManualCity] = useState('');
-  const [manualRole, setManualRole] = useState('Operations Executive / Logistics Coordinator');
-  const [manualEmail, setManualEmail] = useState('');
-  const [manualJobUrl, setManualJobUrl] = useState('');
-  const [manualDnsResult, setManualDnsResult] = useState<any | null>(null);
-  const [isTestingDns, setIsTestingDns] = useState(false);
+  // Company Name Search State
+  const [searchCompName, setSearchCompName] = useState('');
+  const [searchCompCountry, setSearchCompCountry] = useState('United Arab Emirates');
+  const [searchCompRole, setSearchCompRole] = useState('Operations Executive / Supply Chain Specialist');
+  const [isSearchingComp, setIsSearchingComp] = useState(false);
+  const [searchCompResult, setSearchCompResult] = useState<any | null>(null);
+  const [searchCompError, setSearchCompError] = useState<string | null>(null);
+
+  // Bulk HR Email Ingestion State
+  const [bulkEmailText, setBulkEmailText] = useState('');
+  const [bulkCompName, setBulkCompName] = useState('');
+  const [bulkCountry, setBulkCountry] = useState('United Arab Emirates');
+  const [bulkRole, setBulkRole] = useState('Operations Executive / Supply Chain Specialist');
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkResults, setBulkResults] = useState<any | null>(null);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  // Templates & Messaging Studio State
+  const [candidatePhone, setCandidatePhone] = useState('+91 9583029294');
+  const [candidateEmail, setCandidateEmail] = useState('adilrazask@gmail.com');
+  const [candidateLinkedIn, setCandidateLinkedIn] = useState('https://www.linkedin.com/in/');
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState<'international' | 'partnership' | 'domestic_job' | 'outside_portal'>('international');
+  const [templateSubject, setTemplateSubject] = useState('');
+  const [templateBody, setTemplateBody] = useState('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isSavingTemplates, setIsSavingTemplates] = useState(false);
+  const [templateSaveSuccess, setTemplateSaveSuccess] = useState<string | null>(null);
+  const [allTemplatesData, setAllTemplatesData] = useState<any | null>(null);
 
   // Composer Modal State
   const [showModal, setShowModal] = useState(false);
@@ -67,7 +87,20 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
 
   useEffect(() => {
     fetchDirectory();
+    fetchTemplates();
   }, []);
+
+  const formatErrorDetail = (err: any, fallback: string = 'Operation failed.'): string => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => d.msg ? `${d.loc?.join('.') || ''}: ${d.msg}` : JSON.stringify(d)).join(' | ');
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.msg || JSON.stringify(detail);
+    }
+    return err.message || fallback;
+  };
 
   const fetchDirectory = async () => {
     setIsLoadingDirectory(true);
@@ -83,24 +116,108 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
     }
   };
 
-  const handleTestManualDns = async () => {
-    if (!manualEmail || !manualEmail.includes('@')) {
-      alert('Please enter a valid email address or domain.');
+  const fetchTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const res = await api.getEmailTemplates();
+      setAllTemplatesData(res);
+      if (res.candidate) {
+        setCandidatePhone(res.candidate.phone || '+91 9583029294');
+        setCandidateEmail(res.candidate.email || 'adilrazask@gmail.com');
+        setCandidateLinkedIn(res.candidate.linkedin || 'https://www.linkedin.com/in/');
+      }
+      if (res.templates && res.templates[selectedTemplateKey]) {
+        setTemplateSubject(res.templates[selectedTemplateKey].subject || '');
+        setTemplateBody(res.templates[selectedTemplateKey].body || '');
+      }
+    } catch (err) {
+      console.warn('Failed to fetch templates:', err);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
+
+  const handleTemplateSwitch = (key: 'international' | 'partnership' | 'domestic_job' | 'outside_portal') => {
+    setSelectedTemplateKey(key);
+    setTemplateSaveSuccess(null);
+    if (allTemplatesData?.templates?.[key]) {
+      setTemplateSubject(allTemplatesData.templates[key].subject || '');
+      setTemplateBody(allTemplatesData.templates[key].body || '');
+    }
+  };
+
+  const handleSaveTemplates = async () => {
+    setIsSavingTemplates(true);
+    setTemplateSaveSuccess(null);
+    try {
+      const payload: any = {
+        candidate_phone: candidatePhone.trim(),
+        candidate_email: candidateEmail.trim(),
+        candidate_linkedin: candidateLinkedIn.trim()
+      };
+      if (selectedTemplateKey === 'domestic_job') {
+        payload.domestic_job_subject = templateSubject.trim();
+        payload.domestic_job_body = templateBody.trim();
+      } else if (selectedTemplateKey === 'international') {
+        payload.international_subject = templateSubject.trim();
+        payload.international_body = templateBody.trim();
+      } else if (selectedTemplateKey === 'partnership') {
+        payload.partnership_pitch_subject = templateSubject.trim();
+        payload.partnership_pitch_body = templateBody.trim();
+      }
+      const res = await api.updateEmailTemplates(payload);
+      setTemplateSaveSuccess(res.message || 'Template & contact details successfully updated and saved!');
+      fetchTemplates();
+    } catch (err: any) {
+      alert(formatErrorDetail(err, 'Failed to save templates.'));
+    } finally {
+      setIsSavingTemplates(false);
+    }
+  };
+
+  const handleSearchCompany = async () => {
+    if (!searchCompName.trim()) {
+      alert('Please enter or paste a company name.');
       return;
     }
-    setIsTestingDns(true);
-    setManualDnsResult(null);
+    setIsSearchingComp(true);
+    setSearchCompResult(null);
+    setSearchCompError(null);
     try {
-      const res = await api.verifyInternationalEmail(manualEmail);
-      setManualDnsResult(res);
-    } catch (err: any) {
-      setManualDnsResult({
-        valid: false,
-        reason: err.response?.data?.detail || err.message,
-        has_mx: false
+      const res = await api.searchCompanyHR({
+        company_name: searchCompName.trim(),
+        country: searchCompCountry,
+        target_role: searchCompRole.trim()
       });
+      setSearchCompResult(res);
+    } catch (err: any) {
+      setSearchCompError(formatErrorDetail(err, 'Company search failed.'));
     } finally {
-      setIsTestingDns(false);
+      setIsSearchingComp(false);
+    }
+  };
+
+  const handleBulkDispatch = async (scheduleMode: boolean) => {
+    if (!bulkEmailText.trim()) {
+      alert('Please paste at least one HR or official company email address.');
+      return;
+    }
+    setIsBulkProcessing(true);
+    setBulkResults(null);
+    setBulkError(null);
+    try {
+      const res = await api.bulkDispatchInternational({
+        email_list: bulkEmailText.trim(),
+        schedule_mode: scheduleMode,
+        company_name: bulkCompName.trim() || undefined,
+        country: bulkCountry,
+        job_title: bulkRole.trim()
+      });
+      setBulkResults(res);
+    } catch (err: any) {
+      setBulkError(formatErrorDetail(err, 'Bulk email processing failed.'));
+    } finally {
+      setIsBulkProcessing(false);
     }
   };
 
@@ -125,7 +242,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
       setModalBody(draftRes.body);
     } catch (err: any) {
       setModalSubject(`Application: ${role} — SK Adil Raja | Omnia Steels Pvt Ltd (Relocation to ${country})`);
-      setModalBody(`Dear Hiring Team at ${company},\n\nMy name is SK Adil Raja, currently working as Operations Executive at Omnia Steels Pvt Ltd, Attapur, Hyderabad. I am writing to apply for the ${role} position in ${country}.\n\nPlease find my resume attached (SK_Adil_Raja_Resume.pdf).\n\nWarm regards,\nSK Adil Raja`);
+      setModalBody(`Dear Hiring Team at ${company},\n\nMy name is SK Adil Raja. I am an experienced Operations Executive currently based in Hyderabad, India, working with Omnia Steels Pvt Ltd in Attapur, Hyderabad. I am writing to express my strong interest in Operations and Supply Chain opportunities with ${company} in ${country}.\n\nWith over 2.5 years of experience orchestrating warehouse dispatch, ERP inventory reconciliation, and client logistics, I have maintained a 99%+ on-time fulfillment record. I am fully prepared and enthusiastic to relocate to ${country}.\n\nPlease find my resume attached (SK_Adil_Raja_Resume.pdf).\n\nSincerely,\nSK Adil Raja\nOperations Executive, Omnia Steels Pvt Ltd\nAttapur, Hyderabad, India\nPhone: ${candidatePhone} | Email: ${candidateEmail}\nLinkedIn: ${candidateLinkedIn}`);
     } finally {
       setIsDrafting(false);
     }
@@ -142,23 +259,22 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
 
     try {
       const res = await api.sendInternationalApplication({
-        recipient_email: modalEmail,
-        company_name: modalCompany,
-        country: modalCountry,
-        job_title: modalRole,
-        subject: modalSubject,
-        body_text: modalBody,
-        job_url: modalJobUrl
+        recipient_email: modalEmail.trim(),
+        company_name: modalCompany.trim(),
+        country: modalCountry.trim(),
+        job_title: modalRole.trim(),
+        subject: modalSubject.trim(),
+        body_text: modalBody.trim(),
+        job_url: modalJobUrl.trim() || undefined
       });
       setSendSuccess(res);
     } catch (err: any) {
-      setSendError(err.response?.data?.detail || err.message || 'Dispatch failed.');
+      setSendError(formatErrorDetail(err, 'Dispatch failed.'));
     } finally {
       setIsSending(false);
     }
   };
 
-  // Filter lists
   const filterList = (items: CorporateEmployer[]) => {
     return items.filter(item => {
       const matchesSearch =
@@ -199,7 +315,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
                 International Jobs & Direct Corporate HR
               </h1>
               <p className="text-xs text-emerald-100/80 max-w-2xl mt-1 leading-relaxed">
-                Direct corporate outreach for Gulf settled enterprises (UAE, Qatar, Kuwait, Saudi Arabia) and Western employers (Australia, New Zealand, USA, UK). Dispatches candidate's exact authenticated resume PDF with live DNS deliverability.
+                Direct corporate outreach for Gulf settled enterprises (UAE, Qatar, Kuwait, Saudi Arabia) and Western employers (Australia, New Zealand, USA, UK). Includes company search, bulk email dispatch & scheduling, and custom email template editing.
               </p>
             </div>
           </div>
@@ -210,8 +326,8 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
               <div className="text-[10px] text-emerald-300 font-mono">Omnia Steels Pvt Ltd (M.Sc. CS)</div>
             </div>
             <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-xs text-white">
-              <span className="text-slate-300">Attachment:</span> <span className="font-bold">SK_Adil_Raja_Resume.pdf</span>
-              <div className="text-[10px] text-emerald-300">1.2 MB Authenticated PDF</div>
+              <span className="text-slate-300">Phone:</span> <span className="font-bold">{candidatePhone}</span>
+              <div className="text-[10px] text-emerald-300">Resume: SK_Adil_Raja_Resume.pdf</div>
             </div>
           </div>
         </div>
@@ -224,29 +340,35 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
           >
             <span className="flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-emerald-400" />
-              International Relocation & Direct Outreach Strategy (Gulf & Western Direct HR)
+              Strategic Guide: Multi-Country Direct HR Applications & Zero-Bounce Deliverability
             </span>
             {showGuide ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
 
           {showGuide && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-xs text-emerald-100/90 leading-relaxed">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3 text-xs text-emerald-100/90 leading-relaxed">
               <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/30">
-                <p className="font-bold text-white mb-1">1. Gulf Hubs (UAE, Qatar, Kuwait, Saudi)</p>
+                <p className="font-bold text-white mb-1">1. Gulf Sponsoring Employers</p>
                 <p className="text-[11px] text-emerald-200/80">
-                  Leading Gulf logistics and retail giants (DP World, Al Futtaim, Aramex, Milaha) actively sponsor and recruit experienced Indian operations executives. Direct applications bypass crowded portal algorithms.
+                  UAE, Qatar, Kuwait, and Saudi hubs actively hire Indian operations executives with steel/industrial dispatch experience. Direct emails reach talent acquisition desks without portal filtering.
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/30">
-                <p className="font-bold text-white mb-1">2. Western Direct HR (Australia, NZ, USA, UK)</p>
+                <p className="font-bold text-white mb-1">2. Western Direct Corporate HR</p>
                 <p className="text-[11px] text-emerald-200/80">
-                  Instead of third-party portals with regional geo-blocks, outreach emails are delivered directly to verified corporate HR and talent acquisition inboxes with candidate's full resume PDF attached.
+                  For Australia, New Zealand, USA, and UK, applications bypass third-party aggregators with geo-blocks and are delivered straight to corporate HR mailboxes with your authenticated PDF attached.
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/30">
-                <p className="font-bold text-white mb-1">3. Zero-Bounce Deliverability</p>
+                <p className="font-bold text-white mb-1">3. Copy & Paste Company Search</p>
                 <p className="text-[11px] text-emerald-200/80">
-                  Every domain is validated via real-time DNS MX lookups. Synthetic placeholders (<code className="text-rose-300">fake@</code>, <code className="text-rose-300">priya@</code>) are blocked. Automated follow-ups are queued for 1d, 15d, and 30d.
+                  Paste ANY company name to automatically look up official HR/careers emails, test active DNS MX records, and draft a tailored cover letter ready for 1-click transmission.
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/30">
+                <p className="font-bold text-white mb-1">4. Bulk Input: Send or Schedule</p>
+                <p className="text-[11px] text-emerald-200/80">
+                  Paste multiple HR emails to validate all domains in bulk, and choose either immediate Gmail dispatch or schedule them for autonomous queue pacing.
                 </p>
               </div>
             </div>
@@ -254,18 +376,18 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-2">
+      {/* Main Tabs Navigation */}
+      <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-1">
         <button
           onClick={() => { setActiveTab('gulf'); setCountryFilter('ALL'); }}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
+          className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
             activeTab === 'gulf'
               ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
               : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
           <Building2 className="h-4 w-4" />
-          Gulf & Middle East (UAE, Qatar, Kuwait, Saudi)
+          Gulf Corporate HR (UAE, Qatar, Saudi, Kuwait)
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
             {gulfCompanies.length}
           </span>
@@ -273,7 +395,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
 
         <button
           onClick={() => { setActiveTab('western'); setCountryFilter('ALL'); }}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
+          className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
             activeTab === 'western'
               ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
               : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
@@ -287,15 +409,39 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
         </button>
 
         <button
-          onClick={() => setActiveTab('manual')}
-          className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
-            activeTab === 'manual'
+          onClick={() => setActiveTab('company-search')}
+          className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
+            activeTab === 'company-search'
               ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20'
               : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
           }`}
         >
           <Search className="h-4 w-4" />
-          Manual Employer Ingestion & Live DNS Tester
+          Search by Company Name
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bulk-emails')}
+          className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
+            activeTab === 'bulk-emails'
+              ? 'border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <Mail className="h-4 w-4" />
+          Paste HR Emails (Send / Schedule)
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('templates'); fetchTemplates(); }}
+          className={`px-3.5 py-2.5 text-xs font-bold rounded-t-xl transition flex items-center gap-2 border-b-2 ${
+            activeTab === 'templates'
+              ? 'border-rose-500 text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          Email Templates & Message Studio
         </button>
       </div>
 
@@ -322,10 +468,10 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
               <option value="ALL">All Countries</option>
               {activeTab === 'gulf' ? (
                 <>
-                  <option value="United Arab Emirates">United Arab Emirates (Dubai / Abu Dhabi)</option>
-                  <option value="Qatar">Qatar (Doha)</option>
-                  <option value="Saudi Arabia">Saudi Arabia (Riyadh / Dammam)</option>
-                  <option value="Kuwait">Kuwait (Kuwait City)</option>
+                  <option value="United Arab Emirates">United Arab Emirates</option>
+                  <option value="Qatar">Qatar</option>
+                  <option value="Saudi Arabia">Saudi Arabia</option>
+                  <option value="Kuwait">Kuwait</option>
                 </>
               ) : (
                 <>
@@ -349,7 +495,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
         </div>
       )}
 
-      {/* TAB 1: GULF & MIDDLE EAST */}
+      {/* TAB 1: GULF CORPORATE DIRECTORY */}
       {activeTab === 'gulf' && (
         <div className="space-y-6">
           {/* Top Gulf Portals */}
@@ -388,7 +534,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
             </div>
           </div>
 
-          {/* Gulf Corporate Directory */}
+          {/* Settled Gulf Corporate Directory */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-2">
@@ -430,7 +576,7 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400 text-[11px]">DNS Deliverability:</span>
+                        <span className="text-slate-400 text-[11px]">Deliverability:</span>
                         <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                           <ShieldCheck className="h-3 w-3" /> {comp.mx_provider}
                         </span>
@@ -462,9 +608,9 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
           <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
             <Plane className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold">Direct Corporate HR Inboxes (No Third-Party Portals)</p>
+              <p className="font-bold">Direct Corporate HR Inboxes (Australia, New Zealand, USA, UK)</p>
               <p className="text-[11px] text-blue-700 dark:text-blue-300 mt-0.5">
-                For Australia, New Zealand, USA, and UK, applications bypass third-party job aggregators and go directly to official corporate talent acquisition and HR mailboxes. Your authenticated resume PDF (<code className="font-mono">SK_Adil_Raja_Resume.pdf</code>) is attached directly.
+                Bypasses third-party aggregators and reaches established enterprise recruitment teams directly. Authenticated resume PDF (<code className="font-mono">SK_Adil_Raja_Resume.pdf</code>) is attached directly.
               </p>
             </div>
           </div>
@@ -524,31 +670,211 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
         </div>
       )}
 
-      {/* TAB 3: MANUAL INGESTION & DNS TESTER */}
-      {activeTab === 'manual' && (
+      {/* TAB 3: SEARCH BY COMPANY NAME */}
+      {activeTab === 'company-search' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-indigo-500" />
-                Add & Verify International Employer
+                <Search className="h-4 w-4 text-indigo-500" />
+                Copy & Paste Company Name to Find HR & Apply
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Enter any international company you want to apply to. The system checks live DNS MX records to prevent non-existent domains or mail bounces before generating your tailored application.
+                Paste any corporate name (e.g. Toll Group, Linfox, Maersk, Alshaya, Tata Steel, Schneider Electric). The engine resolves the official careers mailbox, checks real-time DNS MX, and generates your application.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                  Paste Company Name *
+                </label>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={searchCompName}
+                    onChange={(e) => setSearchCompName(e.target.value)}
+                    placeholder="e.g. DP World, Toll Group, Linfox, Chalhoub, Mainfreight"
+                    className="flex-1 px-3 py-2.5 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold"
+                  />
+                  <button
+                    onClick={handleSearchCompany}
+                    disabled={isSearchingComp || !searchCompName.trim()}
+                    className="px-5 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white transition flex items-center gap-1.5 shadow-md flex-shrink-0"
+                  >
+                    <Search className={`h-3.5 w-3.5 ${isSearchingComp ? 'animate-spin' : ''}`} />
+                    {isSearchingComp ? 'Searching...' : 'Find HR & Draft'}
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-                  Company Name
+                  Target Country / Region
+                </label>
+                <select
+                  value={searchCompCountry}
+                  onChange={(e) => setSearchCompCountry(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:outline-none"
+                >
+                  <option value="United Arab Emirates">United Arab Emirates (Dubai / Abu Dhabi)</option>
+                  <option value="Qatar">Qatar (Doha)</option>
+                  <option value="Saudi Arabia">Saudi Arabia (Riyadh / Dammam)</option>
+                  <option value="Kuwait">Kuwait</option>
+                  <option value="Australia">Australia (Sydney / Melbourne)</option>
+                  <option value="New Zealand">New Zealand (Auckland)</option>
+                  <option value="United States">United States</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                  Target Role
                 </label>
                 <input
                   type="text"
-                  value={manualCompany}
-                  onChange={(e) => setManualCompany(e.target.value)}
-                  placeholder="e.g. DP World Australia, Linfox, etc."
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={searchCompRole}
+                  onChange={(e) => setSearchCompRole(e.target.value)}
+                  placeholder="Operations Executive / Supply Chain Specialist"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {searchCompError && (
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                <span>{searchCompError}</span>
+              </div>
+            )}
+
+            {searchCompResult && (
+              <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-indigo-500" />
+                      {searchCompResult.company}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {searchCompResult.city}, {searchCompResult.country}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    searchCompResult.dns_verified
+                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                  }`}>
+                    {searchCompResult.found_in_directory ? 'Verified Directory Match' : 'Domain DNS Active'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 text-[11px] block">Corporate HR / Careers Email:</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">
+                      {searchCompResult.email}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 text-[11px] block">Deliverability & DNS:</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      {searchCompResult.mx_provider}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    onClick={() => openComposer(
+                      searchCompResult.company,
+                      searchCompResult.country,
+                      searchCompRole,
+                      searchCompResult.email,
+                      `https://${searchCompResult.domain}`
+                    )}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center justify-center gap-1.5 shadow-md"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Review Application & Send via Gmail SMTP (Attach Resume PDF)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 shadow-sm space-y-3">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-emerald-400" /> Candidate Ground Truth
+              </h3>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-slate-400 text-[11px]">Candidate:</span>
+                  <div className="font-semibold text-white">SK Adil Raja</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">Current Experience:</span>
+                  <div className="font-semibold text-emerald-400">Omnia Steels Pvt Ltd</div>
+                  <div className="text-[10px] text-slate-400">Operations Executive (Attapur, Hyderabad)</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">Phone & Contacts:</span>
+                  <div className="font-semibold text-white">{candidatePhone}</div>
+                  <div className="text-[10px] text-slate-400">{candidateEmail}</div>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[11px]">Attached Resume:</span>
+                  <div className="font-mono text-[11px] text-blue-300 font-semibold">SK_Adil_Raja_Resume.pdf</div>
+                  <div className="text-[10px] text-slate-400">1.2 MB Authenticated PDF</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: BULK HR EMAILS (SEND / SCHEDULE) */}
+      {activeTab === 'bulk-emails' && (
+        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Mail className="h-4 w-4 text-amber-500" />
+              Paste HR / Company Official Email List (Instant Send or Autonomous Schedule)
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Paste email addresses of recruiters or company officials (comma, space, or newline separated). The engine tests DNS deliverability for each and provides 1-click immediate transmission or enqueues them for scheduled delivery.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase flex items-center justify-between">
+                <span>Paste HR Email Addresses *</span>
+                <span className="text-[10px] text-slate-400">Comma, space, or newline separated</span>
+              </label>
+              <textarea
+                rows={5}
+                value={bulkEmailText}
+                onChange={(e) => setBulkEmailText(e.target.value)}
+                placeholder="careers@dpworld.com, recruitment@linfox.com, careers@tollgroup.com, hr@chalhoub.com"
+                className="w-full mt-1 p-3 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-mono focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                  Company Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={bulkCompName}
+                  onChange={(e) => setBulkCompName(e.target.value)}
+                  placeholder="Auto-inferred from email domain"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:outline-none"
                 />
               </div>
 
@@ -557,11 +883,11 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
                   Target Country
                 </label>
                 <select
-                  value={manualCountry}
-                  onChange={(e) => setManualCountry(e.target.value)}
+                  value={bulkCountry}
+                  onChange={(e) => setBulkCountry(e.target.value)}
                   className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:outline-none"
                 >
-                  <option value="United Arab Emirates">United Arab Emirates (Dubai / Abu Dhabi)</option>
+                  <option value="United Arab Emirates">United Arab Emirates</option>
                   <option value="Qatar">Qatar</option>
                   <option value="Saudi Arabia">Saudi Arabia</option>
                   <option value="Kuwait">Kuwait</option>
@@ -574,150 +900,260 @@ export const InternationalJobs: React.FC<InternationalJobsProps> = ({ onNavigate
 
               <div>
                 <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-                  City (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={manualCity}
-                  onChange={(e) => setManualCity(e.target.value)}
-                  placeholder="e.g. Sydney, Melbourne, Dubai, Doha"
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
                   Target Role
                 </label>
                 <input
                   type="text"
-                  value={manualRole}
-                  onChange={(e) => setManualRole(e.target.value)}
-                  placeholder="e.g. Logistics Coordinator / Operations Executive"
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase flex items-center justify-between">
-                  <span>Corporate HR / Talent Acquisition Email *</span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">Real Mailboxes Only</span>
-                </label>
-                <div className="flex gap-2 mt-1">
-                  <input
-                    type="email"
-                    value={manualEmail}
-                    onChange={(e) => setManualEmail(e.target.value)}
-                    placeholder="e.g. careers@tollgroup.com or hr@dpworld.com"
-                    className="flex-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
-                  />
-                  <button
-                    onClick={handleTestManualDns}
-                    disabled={isTestingDns}
-                    className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-sm"
-                  >
-                    <ShieldCheck className={`h-3.5 w-3.5 ${isTestingDns ? 'animate-spin' : ''}`} />
-                    Test DNS MX
-                  </button>
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
-                  Company Careers URL / Post Link (Optional)
-                </label>
-                <input
-                  type="url"
-                  value={manualJobUrl}
-                  onChange={(e) => setManualJobUrl(e.target.value)}
-                  placeholder="e.g. https://www.tollgroup.com/careers"
-                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  value={bulkRole}
+                  onChange={(e) => setBulkRole(e.target.value)}
+                  placeholder="Operations Executive / Logistics Coordinator"
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white focus:outline-none"
                 />
               </div>
             </div>
 
-            {/* DNS Test Result */}
-            {manualDnsResult && (
-              <div
-                className={`p-3.5 rounded-xl border text-xs ${
-                  manualDnsResult.has_mx
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200'
-                }`}
-              >
-                <div className="flex items-center gap-2 font-bold">
-                  {manualDnsResult.has_mx ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      Domain MX Validated: {manualDnsResult.domain} ({manualDnsResult.provider || 'Active Mail Server'})
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                      Domain MX Lookup Failed: {manualDnsResult.reason || 'No active mail exchangers found'}
-                    </>
-                  )}
-                </div>
-                {manualDnsResult.has_mx && (
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-1">
-                    This domain has active mail exchanger records. Emails sent to this domain will reach corporate mailboxes without bounce.
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="pt-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
               <button
-                onClick={() => openComposer(manualCompany || 'International Employer', manualCountry, manualRole, manualEmail, manualJobUrl)}
-                disabled={!manualEmail || !manualCompany}
-                className="w-full py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white transition flex items-center justify-center gap-1.5 shadow-md"
+                onClick={() => handleBulkDispatch(false)}
+                disabled={isBulkProcessing || !bulkEmailText.trim()}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white transition flex items-center justify-center gap-2 shadow-md"
               >
-                <Send className="h-3.5 w-3.5" />
-                Draft & Review Application Letter (Attach Resume PDF)
+                <Send className={`h-4 w-4 ${isBulkProcessing ? 'animate-spin' : ''}`} />
+                Send All Now via Gmail SMTP (Attach Resume PDF)
+              </button>
+
+              <button
+                onClick={() => handleBulkDispatch(true)}
+                disabled={isBulkProcessing || !bulkEmailText.trim()}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white transition flex items-center justify-center gap-2 shadow-md"
+              >
+                <Clock className="h-4 w-4" />
+                Schedule Automated Sending (Background Worker)
               </button>
             </div>
           </div>
 
-          {/* Quick Info & Candidate Truth Card */}
-          <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 shadow-sm space-y-3">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-emerald-400" /> Candidate Verification Profile
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div>
-                  <span className="text-slate-400 text-[11px]">Full Name:</span>
-                  <div className="font-semibold text-white">SK Adil Raja</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[11px]">Current Company:</span>
-                  <div className="font-semibold text-emerald-400">Omnia Steels Pvt Ltd</div>
-                  <div className="text-[10px] text-slate-400">Attapur, Hyderabad, India</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[11px]">Current Designation:</span>
-                  <div className="font-semibold text-white">Operations Executive (2.5+ Years)</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[11px]">Highest Education:</span>
-                  <div className="font-semibold text-white">M.Sc. Computer Science</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 text-[11px]">Resume Document:</span>
-                  <div className="font-mono text-[11px] text-blue-300 font-semibold">SK_Adil_Raja_Resume.pdf</div>
-                  <div className="text-[10px] text-slate-400">Original 1.2 MB PDF attached to all emails</div>
-                </div>
+          {bulkError && (
+            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+              <span>{bulkError}</span>
+            </div>
+          )}
+
+          {bulkResults && (
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-slate-800 dark:text-white">
+                  Batch Execution Report: {bulkResults.message}
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                  Mode: {bulkResults.mode}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-200/60 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 text-[11px] uppercase">
+                    <tr>
+                      <th className="p-2 rounded-l">Recipient Email</th>
+                      <th className="p-2">Company</th>
+                      <th className="p-2">Status</th>
+                      <th className="p-2 rounded-r">Details / Deliverability</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {bulkResults.results?.map((r: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-slate-100 dark:hover:bg-slate-800/40">
+                        <td className="p-2 font-mono text-[11px] font-semibold">{r.email}</td>
+                        <td className="p-2">{r.company || '—'}</td>
+                        <td className="p-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.status === 'SENT' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                            r.status === 'SCHEDULED' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                            'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="p-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          {r.reason || r.mx_provider || 'Processed'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
+        </div>
+      )}
 
-            <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-900 dark:text-emerald-200 space-y-2">
-              <p className="font-bold flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                Anti-Bounce Guarantee
+      {/* TAB 5: EMAIL TEMPLATES & MESSAGE STUDIO */}
+      {activeTab === 'templates' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-rose-500" />
+                  Email Templates & Messaging Studio
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Inspect and customize the exact subject line and body text for each outreach channel. Changes are saved and applied automatically.
+                </p>
+              </div>
+
+              <button
+                onClick={handleSaveTemplates}
+                disabled={isSavingTemplates}
+                className="px-4 py-2 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white transition flex items-center gap-1.5 shadow-md flex-shrink-0"
+              >
+                <Save className={`h-3.5 w-3.5 ${isSavingTemplates ? 'animate-spin' : ''}`} />
+                {isSavingTemplates ? 'Saving...' : 'Save Template'}
+              </button>
+            </div>
+
+            {templateSaveSuccess && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <span>{templateSaveSuccess}</span>
+              </div>
+            )}
+
+            {/* Template Selector Pills */}
+            <div className="flex flex-wrap gap-2 pt-1 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <button
+                onClick={() => handleTemplateSwitch('international')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  selectedTemplateKey === 'international'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                International & Gulf Jobs (Resume Attached)
+              </button>
+              <button
+                onClick={() => handleTemplateSwitch('partnership')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  selectedTemplateKey === 'partnership'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Partnership Seed Pitch (No Resume Attached)
+              </button>
+              <button
+                onClick={() => handleTemplateSwitch('domestic_job')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  selectedTemplateKey === 'domestic_job'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Domestic Job Applications
+              </button>
+              <button
+                onClick={() => handleTemplateSwitch('outside_portal')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  selectedTemplateKey === 'outside_portal'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                Outside Portals Hot-Mail
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                  Subject Line Template
+                </label>
+                <input
+                  type="text"
+                  value={templateSubject}
+                  onChange={(e) => setTemplateSubject(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-semibold focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">
+                    Email Body / Description Template
+                  </label>
+                  <span className="text-[10px] text-slate-400">
+                    {selectedTemplateKey === 'partnership' ? 'Resume: NOT Attached' : 'Resume: SK_Adil_Raja_Resume.pdf Attached'}
+                  </span>
+                </div>
+                <textarea
+                  rows={14}
+                  value={templateBody}
+                  onChange={(e) => setTemplateBody(e.target.value)}
+                  className="w-full mt-1 p-3 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-mono leading-relaxed focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Candidate Facts & Signature Controls */}
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Sliders className="h-4 w-4 text-rose-500" /> Candidate Contact Details
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                These contact facts are injected into all outgoing email signatures and ATS profiles across every module.
               </p>
-              <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300">
-                All emails dispatched through this portal include candidate's verified Indian operations experience at Omnia Steels Pvt Ltd, clear readiness for international relocation, and 3 automated follow-ups (Day 1, Day 15, Day 30).
-              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase flex items-center gap-1">
+                    <Phone className="h-3 w-3 text-emerald-500" /> Phone Number *
+                  </label>
+                  <input
+                    type="text"
+                    value={candidatePhone}
+                    onChange={(e) => setCandidatePhone(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-semibold focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase flex items-center gap-1">
+                    <Mail className="h-3 w-3 text-blue-500" /> Primary Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={candidateEmail}
+                    onChange={(e) => setCandidateEmail(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-semibold focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase flex items-center gap-1">
+                    <Globe2 className="h-3 w-3 text-indigo-500" /> LinkedIn Profile Link *
+                  </label>
+                  <input
+                    type="text"
+                    value={candidateLinkedIn}
+                    onChange={(e) => setCandidateLinkedIn(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 rounded-lg text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 dark:text-white font-semibold focus:outline-none"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={handleSaveTemplates}
+                    disabled={isSavingTemplates}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white transition flex items-center justify-center gap-1.5 shadow-md"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    Save Contact Details & Signature
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

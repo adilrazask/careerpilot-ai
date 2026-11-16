@@ -110,3 +110,53 @@ def test_international_send_success(mock_send, client):
     assert data["status"] == "SUCCESS"
     assert "linfox.com" in data["recipient"]
     assert data["resume_attached"] == "SK_Adil_Raja_Resume.pdf"
+
+
+def test_international_search_company(client):
+    # Test searching a directory company (DP World)
+    res = client.post("/api/international-jobs/search-company", json={
+        "company_name": "DP World",
+        "country": "United Arab Emirates",
+        "target_role": "Operations Executive"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["found_in_directory"] is True
+    assert "dpworld.com" in data["email"]
+    assert "draft" in data
+    assert "SK Adil Raja" in data["draft"]["body"]
+
+
+@patch("app.routers.international_jobs.EmailOutreachService.send_application_email")
+def test_international_bulk_dispatch_immediate(mock_send, client):
+    mock_send.return_value = {"status": "SUCCESS", "evidence": {"message_id": "<test-msg-123>"}}
+    res = client.post("/api/international-jobs/bulk-dispatch", json={
+        "email_list": "careers@dpworld.com, careers@linfox.com, priya.sharma@fake.com",
+        "schedule_mode": False,
+        "company_name": "Global Logistics",
+        "country": "UAE",
+        "job_title": "Operations Executive"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["total_parsed"] == 3
+    assert data["dispatched_count"] >= 1
+    assert data["failed_count"] >= 1  # synthetic priya.sharma rejected
+
+
+def test_international_bulk_dispatch_schedule(client):
+    res = client.post("/api/international-jobs/bulk-dispatch", json={
+        "email_list": "careers@dpworld.com\ncareers@linfox.com",
+        "schedule_mode": True,
+        "company_name": "Logistics Enterprises",
+        "country": "Australia",
+        "job_title": "Logistics Coordinator"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["mode"] == "SCHEDULED"
+    assert data["scheduled_count"] >= 1
+

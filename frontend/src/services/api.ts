@@ -452,8 +452,46 @@ export const api = {
     const res = await axios.post(`${API_BASE}/international-jobs/draft`, payload);
     return res.data;
   },
-  sendInternationalApplication: async (payload: { recipient_email: string; company_name: string; country: string; job_title: string; subject: string; body_text: string; body?: string; job_url?: string; portal_url?: string; recipient_name?: string }) => {
+  sendInternationalApplication: async (payload: { recipient_email: string; company_name?: string; country?: string; job_title?: string; subject?: string; body_text?: string; body?: string; job_url?: string; portal_url?: string; recipient_name?: string }) => {
     const res = await axios.post(`${API_BASE}/international-jobs/send`, payload);
+    return res.data;
+  },
+  searchCompanyHR: async (payload: { company_name: string; country?: string; target_role?: string }) => {
+    const res = await axios.post(`${API_BASE}/international-jobs/search-company`, payload);
+    return res.data;
+  },
+  bulkDispatchInternational: async (payload: {
+    email_list: string;
+    schedule_mode?: boolean;
+    company_name?: string;
+    country?: string;
+    job_title?: string;
+    custom_subject?: string;
+    custom_body?: string;
+  }) => {
+    const res = await axios.post(`${API_BASE}/international-jobs/bulk-dispatch`, payload);
+    return res.data;
+  },
+
+  // Email Templates & Messaging Studio
+  getEmailTemplates: async () => {
+    const res = await axios.get(`${API_BASE}/policy/email-templates`);
+    return res.data;
+  },
+  updateEmailTemplates: async (payload: {
+    candidate_phone?: string;
+    candidate_email?: string;
+    candidate_linkedin?: string;
+    domestic_job_subject?: string;
+    domestic_job_body?: string;
+    outside_portal_subject?: string;
+    outside_portal_body?: string;
+    partnership_pitch_subject?: string;
+    partnership_pitch_body?: string;
+    international_subject?: string;
+    international_body?: string;
+  }) => {
+    const res = await axios.post(`${API_BASE}/policy/email-templates`, payload);
     return res.data;
   }
 };

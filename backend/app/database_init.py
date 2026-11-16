@@ -150,7 +150,7 @@ def init_db(db: Session = None):
                     "procurement, vendor negotiations, and finance support. Retail trader in Indian equities, derivatives, and forex. "
                     "Fast learner capable of mastering new enterprise tools within a week."
                 ),
-                linkedin_url="https://linkedin.com/in/adil-raja-operations",
+                linkedin_url="https://www.linkedin.com/in/",
                 preferred_contact_method="email",
                 verified_facts={
                     "confirmed_experience_years": 2.5,
@@ -170,6 +170,7 @@ def init_db(db: Session = None):
             profile.full_name = "SK Adil Raja"
             profile.email = "adilrazask@gmail.com"
             profile.phone = "+91 9583029294"
+            profile.linkedin_url = "https://www.linkedin.com/in/"
             profile.current_location = "Attapur, Hyderabad, India"
             profile.total_experience_years = 2.5
             profile.summary = (

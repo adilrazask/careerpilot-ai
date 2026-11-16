@@ -37,7 +37,7 @@ CANDIDATE_FACTS = {
     "learning_style": "fast learner, can pick up new tools within about a week",
     "phone": "+91 9583029294",
     "email": "adilrazask@gmail.com",
-    "linkedin": "linkedin.com/in/adil-raja-operations",
+    "linkedin": "www.linkedin.com/in/",
     "resume_filename": "SK_Adil_Raja_Resume.pdf"
 }
 
