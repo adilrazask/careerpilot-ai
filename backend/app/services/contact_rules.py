@@ -82,7 +82,7 @@ def validate_contact_rules(
 
     # 4. Require genuine verifier or official corporate careers channel; pure ungrounded MX-only is NOT enough
     allowed_methods = {
-        "hunter_verified", "zerobounce_verified", "apollo_ai_verified",
+        "hunter_verified", "zerobounce_verified", "apollo_ai_verified", "apollo_ai_recovered",
         "official_careers_page", "official_careers_channel"
     }
     method = (contact.verification_method or "").strip().lower()

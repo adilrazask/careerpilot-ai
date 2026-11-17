@@ -137,6 +137,26 @@ export const api = {
     const res = await axios.post(`${API_BASE}/jobs/${id}/revalidate`);
     return res.data;
   },
+  getTodayJobs: async (limit: number = 50): Promise<{ status: string; total_today: number; jobs: any[] }> => {
+    const res = await axios.get(`${API_BASE}/jobs/today`, { params: { limit } });
+    return res.data;
+  },
+  deleteJob: async (jobId: number): Promise<{ status: string; message: string }> => {
+    const res = await axios.delete(`${API_BASE}/jobs/${jobId}`);
+    return res.data;
+  },
+  dismissJob: async (jobId: number): Promise<{ status: string; message: string }> => {
+    const res = await axios.post(`${API_BASE}/jobs/${jobId}/dismiss`);
+    return res.data;
+  },
+  scanRealtimeJobs: async (payload?: { query?: string; location?: string }): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/jobs/scan-realtime`, null, { params: payload });
+    return res.data;
+  },
+  getPortalSources: async (): Promise<{ status: string; sources: any[] }> => {
+    const res = await axios.get(`${API_BASE}/jobs/portal-sources`);
+    return res.data;
+  },
 
   // Profile
   getProfile: async (): Promise<CareerProfile> => {
@@ -230,6 +250,18 @@ export const api = {
   },
   getAttempts: async (appId: number) => {
     const res = await axios.get(`${API_BASE}/applications/${appId}/attempts`);
+    return res.data;
+  },
+  checkInboxBounces: async (): Promise<{ status: string; processed_count: number; bounces_detected: number; replies_detected: number; items: any[]; message: string }> => {
+    const res = await axios.post(`${API_BASE}/applications/check-inbox`);
+    return res.data;
+  },
+  recoverContact: async (appId: number): Promise<{ status: string; company_name: string; failed_email: string; total_recovered: number; contacts: any[] }> => {
+    const res = await axios.post(`${API_BASE}/applications/${appId}/recover-contact`);
+    return res.data;
+  },
+  resendApplication: async (appId: number, payload: { recipient_email: string; contact_name?: string; contact_role?: string; subject?: string; body_text?: string }): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/applications/${appId}/resend`, payload);
     return res.data;
   },
 

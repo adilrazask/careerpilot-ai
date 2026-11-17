@@ -22,9 +22,63 @@ from app.models import (
 )
 from app.services.audit import record_audit_log
 
+def extract_bounce_target_and_reason(subject: str, body: str) -> tuple[Optional[str], str]:
+    """Extracts target failed email address and specific bounce reason from bounce body."""
+    target = None
+    m = re.search(r"wasn?\'?t delivered to\s+([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", body, re.IGNORECASE)
+    if m:
+        target = m.group(1).strip()
+    else:
+        m2 = re.search(r"Final-Recipient:\s*rfc822;\s*([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)", body, re.IGNORECASE)
+        if m2:
+            target = m2.group(1).strip()
+        else:
+            m3 = re.search(r"<([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)>:\s*.*?(?:rejected|user unknown|mailbox|not found)", body, re.IGNORECASE)
+            if m3:
+                target = m3.group(1).strip()
+
+    reason = f"Delivery failed: {subject}"
+    r_match = re.search(r"(?:The response was:|The response from the remote server was:|DNS Error:)\s*(.*?)(?:\n\n|\r\n\r\n|$)", body, re.DOTALL | re.IGNORECASE)
+    if r_match:
+        reason = r_match.group(0).strip().replace("\n", " ")[:250]
+    elif "nxdomain" in body.lower():
+        reason = "Domain does not exist (DNS NXDOMAIN / No MX record)."
+    elif "user unknown" in body.lower():
+        reason = "User unknown / Inactive corporate mailbox (550 Recipient rejected)."
+    elif "couldn't be found" in body.lower():
+        reason = "Recipient domain or address couldn't be found."
+
+    return target, reason
+
+
 def classify_recruiter_email(subject: str, body: str) -> Dict[str, Any]:
     """Rule-based and heuristic NLP classification of incoming recruitment messages."""
     text = f"{subject} {body}".lower()
+
+    # 0. Check for Mail Delivery Subsystem / Bounce / Delivery Failure
+    bounce_senders = ["mailer-daemon", "postmaster@", "mail-daemon", "daemon@"]
+    bounce_subjects = [
+        "address not found", "delivery status notification", "mail delivery subsystem",
+        "undelivered mail", "failure notice", "message blocked", "delivery failure",
+        "returned to sender"
+    ]
+    bounce_body_keywords = [
+        "wasn't delivered to", "was not delivered to", "couldn't be found",
+        "could not be found", "dns error", "nxdomain", "user unknown",
+        "recipient address rejected", "mailbox unavailable", "550 5.1.1",
+        "550 5.4.1", "554 5.7.1", "action: failed", "final-recipient:"
+    ]
+    if (
+        any(bs in text for bs in bounce_senders) or
+        any(bs in text for bs in bounce_subjects) or
+        any(bk in text for bk in bounce_body_keywords)
+    ):
+        return {
+            "classification": "DELIVERY_FAILED",
+            "action_required": True,
+            "action_desc": "Outbound email bounced / rejected by recipient mail server. Alternative verified HR contact required.",
+            "sentiment": "NEGATIVE"
+        }
 
     # 1. Check for Security / Suspicious requests
     suspicious_patterns = [
@@ -626,6 +680,11 @@ class EmailOutreachService:
         return {"status": "SUCCESS", "message": "Follow-up email sent via Gmail API", "recipient": recipient, "thread_id": send_res["thread_id"]}
 
     @classmethod
+    def poll_incoming_emails(cls, db: Session) -> List[Dict[str, Any]]:
+        """Alias for poll_inbound_recruiter_replies for unified bounce & reply checking."""
+        return cls.poll_inbound_recruiter_replies(db)
+
+    @classmethod
     def poll_inbound_recruiter_replies(cls, db: Session) -> List[Dict[str, Any]]:
         """Poll incoming emails via IMAP, classify recruiter responses, and update ATS application statuses."""
         host = settings.IMAP_HOST
@@ -643,14 +702,31 @@ class EmailOutreachService:
             mail.login(user, password)
             mail.select("inbox")
 
-            # Search unseen messages from past 7 days
+            # 1. Search unseen messages from past 7 days
             since_date = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%d-%b-%Y")
             status, messages = mail.search(None, f'(UNSEEN SINCE "{since_date}")')
-            if status != "OK":
+            msg_nums = set(messages[0].split()) if status == "OK" and messages and messages[0] else set()
+
+            # 2. Also search recent bounce notifications (mailer-daemon) even if already opened/seen in Gmail
+            try:
+                b_status, b_msgs = mail.search(None, f'(SINCE "{since_date}" FROM "mailer-daemon")')
+                if b_status == "OK" and b_msgs and b_msgs[0]:
+                    msg_nums.update(b_msgs[0].split())
+            except Exception:
+                pass
+
+            try:
+                b_status2, b_msgs2 = mail.search(None, f'(SINCE "{since_date}" SUBJECT "Address not found")')
+                if b_status2 == "OK" and b_msgs2 and b_msgs2[0]:
+                    msg_nums.update(b_msgs2[0].split())
+            except Exception:
+                pass
+
+            if not msg_nums:
                 mail.logout()
                 return []
 
-            for num in messages[0].split():
+            for num in msg_nums:
                 status, data = mail.fetch(num, "(RFC822)")
                 if status != "OK":
                     continue
@@ -680,13 +756,39 @@ class EmailOutreachService:
 
                 classification = classify_recruiter_email(subject, body)
 
-                # Try to correlate with an existing application
-                # Match by sender email or company/role in subject
-                app = db.query(ApplicationRecord).filter(
-                    ApplicationRecord.primary_recipient.ilike(f"%{clean_sender}%")
+                # Check if this email was already logged
+                existing_logged = db.query(EmailModel).filter_by(
+                    subject=subject,
+                    sender=clean_sender
                 ).first()
+                if existing_logged and existing_logged.classification in ["DELIVERY_FAILED", "REJECTION", "INTERVIEW_INVITATION"]:
+                    continue
 
                 now_ts = datetime.now(timezone.utc)
+                app = None
+                target_bounced_email = None
+                bounce_reason_str = None
+
+                # Handle Delivery Failure / Bounce
+                if classification["classification"] == "DELIVERY_FAILED":
+                    target_bounced_email, bounce_reason_str = extract_bounce_target_and_reason(subject, body)
+                    if target_bounced_email:
+                        app = db.query(ApplicationRecord).filter(
+                            ApplicationRecord.primary_recipient.ilike(f"%{target_bounced_email}%")
+                        ).first()
+                    if not app:
+                        # Check recent applications if their email appears anywhere in body
+                        all_recent = db.query(ApplicationRecord).order_by(ApplicationRecord.id.desc()).limit(100).all()
+                        for cand in all_recent:
+                            if cand.primary_recipient and cand.primary_recipient.lower() in body.lower():
+                                app = cand
+                                target_bounced_email = cand.primary_recipient
+                                break
+                else:
+                    # Regular recruiter response: match by clean_sender
+                    app = db.query(ApplicationRecord).filter(
+                        ApplicationRecord.primary_recipient.ilike(f"%{clean_sender}%")
+                    ).first()
 
                 # Save email record
                 em_record = EmailModel(
@@ -704,8 +806,45 @@ class EmailOutreachService:
                 db.add(em_record)
 
                 if app:
-                    # Update application status
-                    if classification["classification"] == "INTERVIEW_INVITATION":
+                    if classification["classification"] == "DELIVERY_FAILED":
+                        app.current_status = "DELIVERY_FAILED"
+                        if app.job:
+                            app.job.application_status = "DELIVERY_FAILED"
+
+                        ev = dict(app.delivery_evidence or {})
+                        ev["delivery_status"] = "DELIVERY_FAILED"
+                        ev["bounce_reason"] = bounce_reason_str or f"Mail Delivery Subsystem: {subject}"
+                        ev["bounce_subject"] = subject
+                        ev["failed_recipient"] = target_bounced_email or app.primary_recipient
+                        ev["bounced_at"] = now_ts.isoformat()
+                        app.delivery_evidence = ev
+
+                        db.add(ApplicationAttempt(
+                            application_id=app.id,
+                            attempt_number=(len(app.attempts or []) + 1),
+                            submission_method="email",
+                            recipient_or_portal=target_bounced_email or app.primary_recipient,
+                            status="FAILED",
+                            idempotency_key=f"bounce-{app.id}-{int(now_ts.timestamp())}",
+                            error_message=bounce_reason_str or subject
+                        ))
+
+                        if app.job_id:
+                            c = db.query(RecruiterContact).filter_by(job_id=app.job_id).first()
+                            if c:
+                                c.verification_status = "BOUNCED_INVALID"
+                                c.notes = f"Mailbox delivery failed: {bounce_reason_str or subject}"
+
+                        record_audit_log(
+                            db=db,
+                            action="email_delivery_failed_bounced",
+                            actor="inbound_monitor",
+                            entity_type="application_record",
+                            entity_id=str(app.id),
+                            details={"recipient": target_bounced_email or app.primary_recipient, "reason": bounce_reason_str}
+                        )
+
+                    elif classification["classification"] == "INTERVIEW_INVITATION":
                         app.current_status = "INTERVIEW_INVITED"
                         app.interview_invited = True
                         db.add(Interview(
@@ -723,17 +862,18 @@ class EmailOutreachService:
                     elif classification["classification"] in ["RECRUITER_QUESTION", "DOCUMENT_REQUEST"]:
                         app.current_status = "RECRUITER_RESPONSE_RECEIVED"
 
-                    db.add(RecruiterResponse(
-                        application_id=app.id,
-                        sender_email=clean_sender,
-                        subject=subject,
-                        body_summary=body[:1000],
-                        response_type=classification["classification"],
-                        sentiment=classification["sentiment"],
-                        requires_user_action=classification["action_required"],
-                        action_description=classification["action_desc"],
-                        received_at=now_ts
-                    ))
+                    if classification["classification"] != "DELIVERY_FAILED":
+                        db.add(RecruiterResponse(
+                            application_id=app.id,
+                            sender_email=clean_sender,
+                            subject=subject,
+                            body_summary=body[:1000],
+                            response_type=classification["classification"],
+                            sentiment=classification["sentiment"],
+                            requires_user_action=classification["action_required"],
+                            action_description=classification["action_desc"],
+                            received_at=now_ts
+                        ))
 
                 db.commit()
                 processed.append({

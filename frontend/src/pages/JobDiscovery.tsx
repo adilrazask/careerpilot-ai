@@ -4,7 +4,7 @@ import { JobListing } from '../types';
 import {
   Compass, Search, Filter, ExternalLink, CheckCircle,
   AlertCircle, Plus, Eye, RefreshCw, X, ShieldAlert, Sparkles, Mail,
-  ChevronLeft, ChevronRight, Send, Check
+  ChevronLeft, ChevronRight, Send, Check, Trash2, Globe, Flame, Zap, Building2, Info
 } from 'lucide-react';
 import { PageId } from '../components/Sidebar';
 
@@ -17,6 +17,17 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
   
+  // View Mode: Today's Openings vs All Discovered
+  const [viewMode, setViewMode] = useState<'today' | 'all'>('today');
+  const [todayJobs, setTodayJobs] = useState<JobListing[]>([]);
+  const [todayTotal, setTodayTotal] = useState<number>(0);
+  const [isLoadingToday, setIsLoadingToday] = useState(false);
+
+  // Portal Sources Modal State
+  const [showPortalModal, setShowPortalModal] = useState(false);
+  const [portalSources, setPortalSources] = useState<any[]>([]);
+  const [isScanningRealtime, setIsScanningRealtime] = useState(false);
+
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [locFilter, setLocFilter] = useState('');
@@ -145,6 +156,19 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
     }
   };
 
+  const fetchTodayJobs = async () => {
+    setIsLoadingToday(true);
+    try {
+      const res = await api.getTodayJobs(50);
+      setTodayJobs(res.jobs || []);
+      setTodayTotal(res.total_today || (res.jobs || []).length);
+    } catch (err) {
+      console.warn('Failed to load today jobs:', err);
+    } finally {
+      setIsLoadingToday(false);
+    }
+  };
+
   const fetchJobs = async () => {
     setLoading(true);
     try {
@@ -163,12 +187,61 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
+    fetchTodayJobs();
     fetchJobs();
     setCurrentPage(1);
   }, [minScore, statusFilter, searchQuery, locFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
-  const paginatedJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const handleDeleteJob = async (jobId: number, jobTitle?: string) => {
+    const confirmed = window.confirm(`Permanently delete vacancy "${jobTitle || 'this job'}" from your database? This will also remove associated applications, contacts, and match logs.`);
+    if (!confirmed) return;
+
+    try {
+      await api.deleteJob(jobId);
+      setJobs(prev => prev.filter(j => j.id !== jobId));
+      setTodayJobs(prev => prev.filter(j => j.id !== jobId));
+      setTodayTotal(prev => Math.max(0, prev - 1));
+      if (selectedJob?.id === jobId) setSelectedJob(null);
+      setSyncMessage(`Job "${jobTitle || jobId}" was permanently deleted from your tracker.`);
+      setTimeout(() => setSyncMessage(null), 5000);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to delete job');
+    }
+  };
+
+  const handleScanRealtime = async () => {
+    setIsScanningRealtime(true);
+    setSyncMessage(null);
+    try {
+      const res = await api.scanRealtimeJobs({
+        query: searchQuery || 'Operations Executive',
+        location: locFilter || 'Hyderabad, India'
+      });
+      setSyncMessage(`Real-time discovery finished! Discovered ${res.discovered_count || 0} vacancies across LinkedIn, Naukri, Indeed, and Apollo.`);
+      await fetchTodayJobs();
+      await fetchJobs();
+      setTimeout(() => setSyncMessage(null), 8000);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Real-time scan failed');
+    } finally {
+      setIsScanningRealtime(false);
+    }
+  };
+
+  const handleOpenPortalSources = async () => {
+    setShowPortalModal(true);
+    try {
+      const res = await api.getPortalSources();
+      setPortalSources(res.sources || []);
+    } catch (err) {
+      console.warn('Failed to fetch portal sources:', err);
+    }
+  };
+
+  const displayedJobs = viewMode === 'today' ? todayJobs : jobs;
+  const isDisplayLoading = viewMode === 'today' ? isLoadingToday : loading;
+  const totalPages = Math.max(1, Math.ceil(displayedJobs.length / pageSize));
+  const paginatedJobs = displayedJobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleManualSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,28 +299,35 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={handleScanRealtime}
+            disabled={isScanningRealtime}
+            className="px-3.5 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
+            title="Scan live LinkedIn, Naukri, Indeed, and Apollo right now"
+          >
+            <Zap className={`h-4 w-4 ${isScanningRealtime ? 'animate-spin' : ''}`} />
+            {isScanningRealtime ? 'Scanning Real-Time...' : 'Scan Real-Time Jobs'}
+          </button>
+          <button
+            onClick={handleOpenPortalSources}
+            className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition shadow flex items-center gap-1.5"
+            title="View connected job portals and configuration"
+          >
+            <Globe className="h-4 w-4 text-cyan-400" /> Portals & Integrations
+          </button>
+          <button
             onClick={handleSyncDefaults}
             disabled={isSyncing}
             className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
-            title="Restore and sync all 107 verified vacancies and 76 HR contacts"
+            title="Restore and sync all 100+ verified vacancies and 76 HR contacts"
           >
             <Sparkles className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Syncing...' : 'Sync 100+ Verified Jobs'}
           </button>
           <button
-            onClick={handleLiveSearch}
-            disabled={isSearchingLive}
-            className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition shadow flex items-center gap-1.5"
-            title="Scan LinkedIn, Naukri, and Indeed for live openings"
-          >
-            <RefreshCw className={`h-4 w-4 ${isSearchingLive ? 'animate-spin' : ''}`} />
-            {isSearchingLive ? 'Scanning Portals...' : 'Discover Live Jobs'}
-          </button>
-          <button
             onClick={() => setShowAddModal(true)}
             className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition shadow flex items-center gap-1.5"
           >
-            <Plus className="h-4 w-4" /> Add Vacancy Manually
+            <Plus className="h-4 w-4" /> Add Vacancy
           </button>
         </div>
       </div>
@@ -262,6 +342,38 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
           <button onClick={() => setSyncMessage(null)} className="text-indigo-400 hover:text-indigo-200 font-bold ml-2">×</button>
         </div>
       )}
+
+      {/* View Mode Toggle: Today's Openings vs All Discovered */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setViewMode('today'); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+              viewMode === 'today'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Flame className={`h-4 w-4 ${viewMode === 'today' ? 'text-amber-300' : 'text-amber-500'}`} />
+            Today's Openings ({todayTotal || todayJobs.length})
+          </button>
+          <button
+            onClick={() => { setViewMode('all'); setCurrentPage(1); }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+              viewMode === 'all'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Compass className="h-4 w-4" />
+            All Discovered Leads ({jobs.length})
+          </button>
+        </div>
+
+        <div className="px-3 text-[11px] text-slate-500 flex items-center gap-2">
+          <span>{viewMode === 'today' ? '⚡ Showing fresh vacancies opened or verified today' : '📁 Complete archive of all discovered vacancies'}</span>
+        </div>
+      </div>
 
       {/* Filter & Search Bar */}
       <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
@@ -343,10 +455,10 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {jobs.length === 0 ? (
+              {displayedJobs.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-10 text-center text-slate-400">
-                    {loading ? 'Searching vacancies...' : 'No job vacancies found matching current filters.'}
+                    {isDisplayLoading ? 'Searching vacancies...' : viewMode === 'today' ? 'No new vacancies detected today yet. Click "Scan Real-Time Jobs" above to discover fresh roles.' : 'No job vacancies found matching current filters.'}
                   </td>
                 </tr>
               ) : (
@@ -417,15 +529,22 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                         <button
                           onClick={() => handlePreviewDraft(job.id)}
                           className="px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 font-semibold text-xs transition inline-flex items-center gap-1 border border-blue-200 dark:border-blue-800"
-                          title="Draft personalised HR email and send manually"
+                          title="Quick Apply via Gmail SMTP (with Resume PDF attached)"
                         >
-                          <Mail className="h-3 w-3" /> Draft & Send
+                          <Mail className="h-3 w-3" /> Quick Apply
                         </button>
                         <button
                           onClick={() => setSelectedJob(job)}
                           className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-xs transition inline-flex items-center gap-1"
                         >
                           <Eye className="h-3.5 w-3.5" /> Inspect
+                        </button>
+                        <button
+                          onClick={() => handleDeleteJob(job.id, job.title)}
+                          className="p-1.5 rounded hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition"
+                          title="Permanently delete opening"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>
@@ -437,14 +556,14 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
         </div>
 
         {/* Vacancy Pagination Control Bar */}
-        {jobs.length > 0 && (
+        {displayedJobs.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-xs">
             <span className="text-slate-500">
               Showing <span className="font-semibold text-slate-800 dark:text-slate-200">{(currentPage - 1) * pageSize + 1}</span> to{' '}
               <span className="font-semibold text-slate-800 dark:text-slate-200">
-                {Math.min(currentPage * pageSize, jobs.length)}
+                {Math.min(currentPage * pageSize, displayedJobs.length)}
               </span> of{' '}
-              <span className="font-semibold text-slate-800 dark:text-slate-200">{jobs.length}</span> vacancies
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{displayedJobs.length}</span> vacancies
             </span>
             <div className="flex items-center gap-1.5">
               <button
@@ -581,6 +700,13 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
               </div>
 
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleDeleteJob(selectedJob.id, selectedJob.title)}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition flex items-center gap-1.5"
+                  title="Delete this opening permanently"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete Opening
+                </button>
                 <button
                   onClick={() => handlePreviewDraft(selectedJob.id)}
                   className="px-3 py-2 rounded-lg text-xs font-semibold bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition flex items-center gap-1.5"
@@ -872,6 +998,90 @@ export const JobDiscovery: React.FC<JobDiscoveryProps> = ({ onNavigate }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Portal Sources & Recruitment Integration Info Modal */}
+      {showPortalModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Live Recruitment Sources
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Auto-Synchronized
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-cyan-500" /> Supported Job Portals & Feeds
+                </h3>
+                <p className="text-xs text-slate-500">
+                  How CareerPilot AI discovers vacancies, extracts official HR mailboxes, and prevents duplicate applications.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPortalModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {portalSources.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs">
+                  Loading recruitment portal directory...
+                </div>
+              ) : (
+                portalSources.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-blue-500" />
+                        <span className="font-bold text-slate-900 dark:text-white text-sm">{src.name}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">
+                          {src.type}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {src.status}
+                      </span>
+                    </div>
+
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {src.method}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-500">
+                      <span>• Target Roles: <strong className="text-slate-700 dark:text-slate-300">{src.target_roles || 'Operations, Supply Chain, Logistics'}</strong></span>
+                      <span>• Location: <strong className="text-slate-700 dark:text-slate-300">{src.coverage}</strong></span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300">
+                      <strong>How to integrate / configure:</strong> {src.config_guide}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-2 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
+              <p className="text-[11px] text-slate-400">
+                All discovered vacancies undergo 3-tier validation (DNS MX, domain check, ATS scoring).
+              </p>
+              <button
+                onClick={() => setShowPortalModal(false)}
+                className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+              >
+                Got It
+              </button>
+            </div>
           </div>
         </div>
       )}
