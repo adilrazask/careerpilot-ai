@@ -100,30 +100,55 @@ def get_email_templates(db: Session = Depends(get_db)):
     email = (profile.email if profile else None) or "adilrazask@gmail.com"
     linkedin = (profile.linkedin_url if profile else None) or "https://www.linkedin.com/in/"
 
-    default_partnership_body = f"""Dear [Director Name],
+    default_partnership_body = f"""Dear [Name],
 
-I hope this message finds you well.
+I’m Adil, founder of GoldMind AI, an autonomous trading platform for Gold (XAUUSD), Bitcoin and FX. I’m writing to ask for your backing for the next stage.
 
-My name is SK Adil Raja. I am an operations specialist based in Hyderabad with an academic background in Computer Science (M.Sc.) and deep practical experience in algorithmic trading systems and systematic risk execution.
+The problem
+Most retail trading bots fire on a single indicator and have no real risk controls. They get chopped up in volatile markets and bleed accounts. GoldMind AI is built to avoid this.
 
-For the past six months, I have been focused entirely on building an automated, AI-driven algorithmic trading execution platform designed for Indian markets (equities, derivatives) and forex. The core architecture—including market feed ingestion, rule-based execution, risk mitigation controls, and broker API integration—is fully built, tested, and functioning.
+How it works
+Five specialised AI agents must agree before any trade reaches the market:
 
-What I am seeking at this stage is a strategic partner or early seed backer who understands the quantitative trading space and believes in the disciplined execution I have developed.
+Atlas scans the market for multi-factor confluence.
+Hermes audits every setup across 5 layers: market regime, strategy logic, memory of past failures, higher-timeframe alignment and an exhaustion check. Only trades scoring 70% or higher pass.
+Aegis enforces risk: it blocks entries around high-impact news and outside the London and New York sessions, and applies a hard daily loss cap of $150.
+Vulcan executes via MetaTrader 5 with fixed $50 stop / $100 target brackets (1:2 risk-to-reward), moves to breakeven at +1R and trails profits.
+Chronos studies every closed trade and automatically mutes any strategy whose rolling win rate drops below 50%.
 
-My request is humble and straightforward: if you believe in supporting early-stage builders, I would be sincerely grateful for a ₹1,000 seed commitment and 10 minutes of your time to review the working platform demo.
+What is already built (about 80%)
 
-If after reviewing the demo you conclude that this does not align with your focus, I will completely respect that and will still remain genuinely thankful for your consideration. But six months of disciplined, rigorous work lies within this system, and I am committed to seeing it succeed with the right partners.
+• A live execution bridge running 24/7 on a cloud VPS, connected to MT5.
+• A web dashboard (React and Supabase) with a full signal audit trail, broker tickets and Telegram alerts.
+• A live validation run that closed at +$140.03 net.
+• About six months of development invested so far, by me, with cloud VPS, data feeds and automated backtesting tools.
+• System Architecture & Walkthrough: https://github.com/adilrazask
 
-You can inspect the platform overview and architecture repository here:
-[DEMO / REPOSITORY LINK]
+The ask and how the money is used
+We are raising $150,000 to $350,000:
 
-Thank you for your valuable time and consideration.
+Use | Share | At $150K | At $350K
+• Low-latency infrastructure and broker connectivity | 35% | $52,500 | $122,500
+• Quant research, ML and backtesting | 35% | $52,500 | $122,500
+• Compliance, legal structure and IP protection | 20% | $30,000 | $70,000
+• Working capital and reserve | 10% | $15,000 | $35,000
 
-Warm regards,
+What it delivers
+
+• Faster execution through direct broker connectivity.
+• A stronger learning engine trained on historical tick data.
+• Expansion into indices, oil and major FX pairs.
+• A compliant structure for managed accounts, with performance-fee settlement.
+
+Our targets at completion are a 58–65% win rate on 1:2 setups and drawdown held under 4.5%. These are goals we will validate with a documented track record, not guarantees.
+
+I would welcome a 20-minute call this week to show you the live system, the audit trail and the trade records.
+
+Best regards,
 
 SK Adil Raja
-M.Sc. Computer Science | Operations & Systems Specialist
-Attapur, Hyderabad, India
+Founder, GoldMind AI | M.Sc. in Computer Science
+Hyderabad, India
 Phone: {phone} | Email: {email}
 LinkedIn: {linkedin}"""
 
@@ -194,8 +219,8 @@ LinkedIn: {linkedin}"""
                 "resume_attached": True
             },
             "partnership": {
-                "title": "Partnership & Investor Seed Pitch (AI Trading Platform)",
-                "subject": custom_templates.get("partnership_pitch_subject") or "AI-Driven Automated Trading Platform (6-Month Build) — Partnership & Seed Collaboration | SK Adil Raja",
+                "title": "GoldMind AI: Seed Round Investor Pitch ($150K–$350K)",
+                "subject": custom_templates.get("partnership_pitch_subject") or "GoldMind AI: autonomous trading system, seed round open ($150K–$350K)",
                 "body": custom_templates.get("partnership_pitch_body") or default_partnership_body,
                 "resume_attached": False
             },

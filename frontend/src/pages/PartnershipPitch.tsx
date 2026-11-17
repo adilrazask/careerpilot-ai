@@ -121,6 +121,64 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
     }
   };
 
+  const generateGoldMindPitch = (name: string, demo: string = 'https://github.com/adilrazask') => {
+    const cleanName = name || 'Director';
+    return {
+      subject: 'GoldMind AI: autonomous trading system, seed round open ($150K–$350K)',
+      body: `Dear ${cleanName},
+
+I’m Adil, founder of GoldMind AI, an autonomous trading platform for Gold (XAUUSD), Bitcoin and FX. I’m writing to ask for your backing for the next stage.
+
+The problem
+Most retail trading bots fire on a single indicator and have no real risk controls. They get chopped up in volatile markets and bleed accounts. GoldMind AI is built to avoid this.
+
+How it works
+Five specialised AI agents must agree before any trade reaches the market:
+
+Atlas scans the market for multi-factor confluence.
+Hermes audits every setup across 5 layers: market regime, strategy logic, memory of past failures, higher-timeframe alignment and an exhaustion check. Only trades scoring 70% or higher pass.
+Aegis enforces risk: it blocks entries around high-impact news and outside the London and New York sessions, and applies a hard daily loss cap of $150.
+Vulcan executes via MetaTrader 5 with fixed $50 stop / $100 target brackets (1:2 risk-to-reward), moves to breakeven at +1R and trails profits.
+Chronos studies every closed trade and automatically mutes any strategy whose rolling win rate drops below 50%.
+
+What is already built (about 80%)
+
+• A live execution bridge running 24/7 on a cloud VPS, connected to MT5.
+• A web dashboard (React and Supabase) with a full signal audit trail, broker tickets and Telegram alerts.
+• A live validation run that closed at +$140.03 net.
+• About six months of development invested so far, by me, with cloud VPS, data feeds and automated backtesting tools.
+• System Architecture & Walkthrough: ${demo}
+
+The ask and how the money is used
+We are raising $150,000 to $350,000:
+
+Use | Share | At $150K | At $350K
+• Low-latency infrastructure and broker connectivity | 35% | $52,500 | $122,500
+• Quant research, ML and backtesting | 35% | $52,500 | $122,500
+• Compliance, legal structure and IP protection | 20% | $30,000 | $70,000
+• Working capital and reserve | 10% | $15,000 | $35,000
+
+What it delivers
+
+• Faster execution through direct broker connectivity.
+• A stronger learning engine trained on historical tick data.
+• Expansion into indices, oil and major FX pairs.
+• A compliant structure for managed accounts, with performance-fee settlement.
+
+Our targets at completion are a 58–65% win rate on 1:2 setups and drawdown held under 4.5%. These are goals we will validate with a documented track record, not guarantees.
+
+I would welcome a 20-minute call this week to show you the live system, the audit trail and the trade records.
+
+Best regards,
+
+Adil Raja
+Founder, GoldMind AI | M.Sc. Computer Science
+Hyderabad, India
+Phone: +91 9583029294 | Email: adilrazask@gmail.com
+LinkedIn: https://www.linkedin.com/in/`
+    };
+  };
+
   const openComposerForDirector = async (dir: DirectorItem) => {
     setTargetEmail(dir.email);
     setTargetName(dir.name);
@@ -131,16 +189,20 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
     setShowComposer(true);
     setIsGeneratingDraft(true);
 
+    const fallback = generateGoldMindPitch(dir.name, 'https://github.com/adilrazask');
+    setPitchSubject(fallback.subject);
+    setPitchBody(fallback.body);
+
     try {
       const draft = await api.draftPartnershipPitch({
         director_name: dir.name,
         company_name: dir.company,
         demo_url: 'https://github.com/adilrazask'
       });
-      setPitchSubject(draft.subject);
-      setPitchBody(draft.body);
+      if (draft.subject) setPitchSubject(draft.subject);
+      if (draft.body) setPitchBody(draft.body);
     } catch (err: any) {
-      setSendErrorNotice('Failed to generate draft pitch.');
+      console.warn('Draft API fallback to GoldMind AI template');
     } finally {
       setIsGeneratingDraft(false);
     }
@@ -151,25 +213,31 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
       alert('Please enter a valid director email address.');
       return;
     }
+    const safeName = manualName.trim() || 'Director';
+    const safeDemo = manualDemoUrl.trim() || 'https://github.com/adilrazask';
     setTargetEmail(manualEmail.trim());
-    setTargetName(manualName.trim() || 'Director');
+    setTargetName(safeName);
     setTargetCompany(manualCompany.trim() || 'Strategic Partner');
-    setDemoUrl(manualDemoUrl.trim() || 'https://github.com/adilrazask');
+    setDemoUrl(safeDemo);
     setSendSuccessNotice(null);
     setSendErrorNotice(null);
     setShowComposer(true);
     setIsGeneratingDraft(true);
 
+    const fallback = generateGoldMindPitch(safeName, safeDemo);
+    setPitchSubject(fallback.subject);
+    setPitchBody(fallback.body);
+
     try {
       const draft = await api.draftPartnershipPitch({
-        director_name: manualName.trim() || 'Director',
+        director_name: safeName,
         company_name: manualCompany.trim() || 'Strategic Partner',
-        demo_url: manualDemoUrl.trim() || 'https://github.com/adilrazask'
+        demo_url: safeDemo
       });
-      setPitchSubject(draft.subject);
-      setPitchBody(draft.body);
+      if (draft.subject) setPitchSubject(draft.subject);
+      if (draft.body) setPitchBody(draft.body);
     } catch (err: any) {
-      setSendErrorNotice('Failed to generate draft pitch.');
+      console.warn('Draft API fallback to GoldMind AI template');
     } finally {
       setIsGeneratingDraft(false);
     }
@@ -233,13 +301,13 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
             </span>
             <div>
               <h1 className="text-xl font-bold text-white flex items-center gap-2">
-                AI Trading Platform: Partnership & Investor Outreach
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  STRATEGIC PARTNERS & DIRECTORS
+                GoldMind AI: Autonomous Trading System (Seed Round: $150K–$350K)
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  SEED ROUND OPEN
                 </span>
               </h1>
               <p className="text-xs text-slate-400">
-                Present your 6-month automated trading platform build to company directors, venture mentors, and angel backers with verified inboxes, live DNS MX validation, and 1-click Gmail SMTP outreach.
+                Present GoldMind AI (autonomous multi-agent trading system for Gold XAUUSD, Bitcoin and FX) to verified tech directors, venture mentors, and angel syndicates with 1-click Gmail SMTP outreach.
               </p>
             </div>
           </div>
@@ -248,16 +316,16 @@ export const PartnershipPitch: React.FC<PartnershipPitchProps> = ({ onNavigate }
         {/* Credentials Badges */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 flex items-center gap-2">
-            <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-            <span><strong>6-Month Build:</strong> Automated AI Trading Engine</span>
+            <FileCode className="w-3.5 h-3.5 text-amber-400" />
+            <span><strong>5 AI Agents:</strong> Atlas, Hermes, Aegis, Vulcan, Chronos</span>
           </div>
           <div className="px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 flex items-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span><strong>DNS MX Verified:</strong> Zero Bounces</span>
+            <span><strong>Live VPS + MT5:</strong> +$140.03 Net Validated Run</span>
           </div>
           <div className="px-3 py-1.5 rounded-xl bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-2">
             <User className="w-3.5 h-3.5 text-blue-400" />
-            <span><strong>Founder:</strong> SK Adil Raja (M.Sc. CS)</span>
+            <span><strong>Founder:</strong> Adil Raja (+91 9583029294)</span>
           </div>
         </div>
       </div>

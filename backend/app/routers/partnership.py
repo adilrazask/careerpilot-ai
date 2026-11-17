@@ -383,45 +383,68 @@ def verify_director_email(payload: VerifyDirectorEmailRequest):
 @router.post("/draft")
 def draft_partnership_pitch(payload: DraftPitchRequest):
     """
-    Generates a high-status, executive-grade pitch combining SK Adil Raja's
-    6-month build story, M.Sc. in Computer Science background, live algorithmic architecture,
-    and clear partnership terms.
+    Generates an executive-grade seed investment pitch for GoldMind AI
+    (autonomous multi-agent trading system for Gold, BTC, and FX),
+    requesting $150K-$350K with complete agent architecture, proof of work,
+    and founder contact details (+91 9583029294).
     """
-    name = (payload.director_name or "Respected Director").strip()
+    name = (payload.director_name or "Director").strip()
     comp = (payload.company_name or "Strategic Partner").strip()
     demo = (payload.demo_url or "https://github.com/adilrazask").strip()
 
-    subject = f"AI-Driven Automated Trading Platform (6-Month Build) — Partnership & Seed Collaboration | SK Adil Raja"
+    subject = "GoldMind AI: autonomous trading system, seed round open ($150K–$350K)"
 
     body = f"""Dear {name},
 
-I hope this email finds you well.
+I’m Adil, founder of GoldMind AI, an autonomous trading platform for Gold (XAUUSD), Bitcoin and FX. I’m writing to ask for your backing for the next stage.
 
-My name is SK Adil Raja. I am a software and operations professional from Hyderabad with an M.Sc. in Computer Science. Over the last six months, I have dedicated myself to engineering a proprietary, AI-driven automated trading platform designed for systematic execution, real-time risk control, and algorithmic strategy management in Indian markets and quantitative finance.
+The problem
+Most retail trading bots fire on a single indicator and have no real risk controls. They get chopped up in volatile markets and bleed accounts. GoldMind AI is built to avoid this.
 
-The core system, data feeds, and execution pipelines are fully built and working. Having poured six months of continuous development and quantitative research into this foundation, I know that technology is strongest when paired with visionary leadership, strategic mentorship, and early believers.
+How it works
+Five specialised AI agents must agree before any trade reaches the market:
 
-I am writing to you directly at {comp} because I respect your track record in technology and business leadership. 
+Atlas scans the market for multi-factor confluence.
+Hermes audits every setup across 5 layers: market regime, strategy logic, memory of past failures, higher-timeframe alignment and an exhaustion check. Only trades scoring 70% or higher pass.
+Aegis enforces risk: it blocks entries around high-impact news and outside the London and New York sessions, and applies a hard daily loss cap of $150.
+Vulcan executes via MetaTrader 5 with fixed $50 stop / $100 target brackets (1:2 risk-to-reward), moves to breakeven at +1R and trails profits.
+Chronos studies every closed trade and automatically mutes any strategy whose rolling win rate drops below 50%.
 
-I would be deeply honored if you could take a brief, 5-minute look at what I have engineered:
-• Platform Overview & Technical Walkthrough: {demo}
-• Core Logic: Systematic order execution, automated risk containment, and algorithmic data modeling.
-• Current Stage: Working operational engine ready for live partnership, strategic advisory, or early seed backing.
+What is already built (about 80%)
 
-If after reviewing the work you feel this is something you would like to be part of—either as a strategic partner, mentor, or early backer—I would welcome the opportunity for a 10-minute introductory conversation. If you conclude it is not a fit for your portfolio, I will still be sincerely grateful for your time and consideration.
+• A live execution bridge running 24/7 on a cloud VPS, connected to MT5.
+• A web dashboard (React and Supabase) with a full signal audit trail, broker tickets and Telegram alerts.
+• A live validation run that closed at +$140.03 net.
+• About six months of development invested so far, by me, with cloud VPS, data feeds and automated backtesting tools.
+• System Architecture & Walkthrough: {demo}
 
-Six months of disciplined hard work lies within this system, and my goal is to build it into an impactful, institutional-grade product with the right partners beside me.
+The ask and how the money is used
+We are raising $150,000 to $350,000:
 
-Thank you for your valuable time and consideration.
+Use | Share | At $150K | At $350K
+• Low-latency infrastructure and broker connectivity | 35% | $52,500 | $122,500
+• Quant research, ML and backtesting | 35% | $52,500 | $122,500
+• Compliance, legal structure and IP protection | 20% | $30,000 | $70,000
+• Working capital and reserve | 10% | $15,000 | $35,000
 
-Warm regards,
+What it delivers
+
+• Faster execution through direct broker connectivity.
+• A stronger learning engine trained on historical tick data.
+• Expansion into indices, oil and major FX pairs.
+• A compliant structure for managed accounts, with performance-fee settlement.
+
+Our targets at completion are a 58–65% win rate on 1:2 setups and drawdown held under 4.5%. These are goals we will validate with a documented track record, not guarantees.
+
+I would welcome a 20-minute call this week to show you the live system, the audit trail and the trade records.
+
+Best regards,
 
 SK Adil Raja
-M.Sc. Computer Science | Operations & Systems Specialist
-Attapur, Hyderabad, India
+Founder, GoldMind AI | M.Sc. in Computer Science
+Hyderabad, India
 Phone: +91 9583029294 | Email: adilrazask@gmail.com
-LinkedIn: https://www.linkedin.com/in/
-"""
+LinkedIn: https://www.linkedin.com/in/"""
 
     return {
         "status": "SUCCESS",
